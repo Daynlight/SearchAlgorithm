@@ -1,7 +1,7 @@
 build/
 vcpkg/
 vendor/
-data.bin
+*.bin
 
 ## Vim
 ~*
