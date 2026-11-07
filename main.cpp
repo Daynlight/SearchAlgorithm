@@ -35,7 +35,7 @@ struct SortedDataset {
   std::vector<double> data;
   BucketIndex bucket_index;
 
-  void build_index(long long num_buckets = 10000) {
+  void build_index(long long num_buckets = 10000) {  // O(n)
     if (data.empty()) return;
     bucket_index.min_val = data.front();
     bucket_index.max_val = data.back();
@@ -45,7 +45,7 @@ struct SortedDataset {
     bucket_index.inv_bucket_width = 1.0 / bucket_index.bucket_width;
     bucket_index.buckets.assign(num_buckets, {-1, -1});
 
-    for (long long i = 0; i < static_cast<long long>(data.size()); ++i) {
+    for (long long i = 0; i < static_cast<long long>(data.size()); ++i) {  // O(n)
       long long b_id = static_cast<long long>((data[i] - bucket_index.min_val) * bucket_index.inv_bucket_width);
       if (b_id >= num_buckets) b_id = num_buckets - 1;
       if (b_id < 0) b_id = 0;
@@ -56,7 +56,7 @@ struct SortedDataset {
 
     long long prev_start = 0;
     long long prev_end = 0;
-    for (long long i = 0; i < num_buckets; ++i) {
+    for (long long i = 0; i < num_buckets; ++i) { // O(n)
       if (bucket_index.buckets[i].first != -1) {
         prev_start = bucket_index.buckets[i].first;
         prev_end = bucket_index.buckets[i].second;
@@ -64,7 +64,7 @@ struct SortedDataset {
       };
     };
 
-    for (long long i = 0; i < num_buckets; ++i) {
+    for (long long i = 0; i < num_buckets; ++i) { // O(n)
       if (bucket_index.buckets[i].first == -1) bucket_index.buckets[i] = {prev_start, prev_end};
       else {
         prev_start = bucket_index.buckets[i].first;
@@ -73,7 +73,7 @@ struct SortedDataset {
     };
   };
 
-  long long find_nearest(double target) const {
+  long long find_nearest(double target) const { // O(log_{2}{n})
     if (data.empty()) return -1;
 
     long long left = 0;
@@ -96,7 +96,7 @@ struct SortedDataset {
     return right;
   };
 
-  long long find_nearest_bucketed(double target) const {
+  long long find_nearest_bucketed(double target) const {  // O(log_{2}{k}) -> k = rozmiar bucketu && k < n
     if (data.empty()) return -1;
 
     long long left = 0;
