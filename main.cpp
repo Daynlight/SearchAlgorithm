@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <map>
 #include <chrono>
+#include <string>
+#include <cmath>
 
 #include <fmt/base.h>
 #include <fmt/color.h>
@@ -24,8 +26,8 @@
 #define DATA_OFFSET_SIZE 100
 
 #define OFFSET_CASE false 
-#define NUM_QUERIES 100000000 
-#define BUCKET_SIZE 0 
+#define NUM_QUERIES 100000000
+#define BUCKET_SIZE 100000000 
 
 
 
@@ -33,10 +35,9 @@ struct BucketIndex {
   double min_val{0};
   double max_val{0};
   double range_span{1.0};
-  double param_b{0.0};
-  double param_a{1.0};
-  double slope{1.0};
-  double intersect{0.0};
+
+  std::vector<double> slopes;
+  std::vector<double> intercepts;
 
   std::vector<long long> bucket_start;
   std::vector<long long> counts;
@@ -48,95 +49,119 @@ struct SortedDataset {
   std::vector<double> data;
   BucketIndex bucket_index;
 
-
-
+  // 2 op, O(1)
   inline double fast_abs(double x) const {
     union {
       double d;
       uint64_t i;
     } u;
-    u.d = x;
-    u.i &= 0x7FFFFFFFFFFFFFFFULL;
-    return u.d;
-  };
-
-
-  
-  // O(1)
-  inline double transform_val(double val) const {
-    double dx = (val - bucket_index.param_b) * bucket_index.param_a;
-    double denom = 1.0 + fast_abs(dx);
-    return 0.5 * (dx / denom + 1.0);
-  };
+    u.d = x;                                                                    // 1
+    u.i &= 0x7FFFFFFFFFFFFFFFULL;                                               // 1
+    return u.d;                                                                 // 0
+  }
 
 
 
   // O(1)
-  inline void calculate_parameters(long long n, long long num_buckets) {
-    const double* d = data.data();
-    double min_v = d[0];
-    double max_v = d[n - 1];
+  inline long long find_segment(double val) const {
+    const long long num_segs = static_cast<long long>(bucket_index.slopes.size());
+    if (num_segs <= 1) return 0;
+    if (val <= bucket_index.min_val) return 0;
+    if (val >= bucket_index.max_val) return num_segs - 1;
+
+    double normalized = (val - bucket_index.min_val) / bucket_index.range_span;
+    long long seg = static_cast<long long>(normalized * num_segs);
     
-    double p1  = d[static_cast<long long>(n * 0.01)];
-    double p50 = d[n >> 1];
-    double p99 = d[static_cast<long long>(n * 0.99)];
-    
-    bucket_index.param_b = p50; 
-
-    double dense_spread = std::max(p99 - p50, p50 - p1);
-    if (__builtin_expect(dense_spread <= 0.0, 0)) dense_spread = bucket_index.range_span;
-    if (dense_spread <= 0.0) dense_spread = 1.0;
-    
-    bucket_index.param_a = 2.5 / dense_spread;
-
-    double tx_min = transform_val(min_v);
-    double tx_max = transform_val(max_v);
-    double dx = tx_max - tx_min;
-    
-    if (std::abs(dx) > 1e-9) {
-      bucket_index.slope = static_cast<double>(num_buckets) / dx;
-      bucket_index.intersect = -bucket_index.slope * tx_min;
-    } else {
-      bucket_index.slope = num_buckets;
-      bucket_index.intersect = 0.0;
-    };
-  };
+    if (seg < 0) return 0;
+    if (seg >= num_segs) return num_segs - 1;
+    return seg;
+  }
 
 
 
-  // O(1) 
+  // O(1)
   long long bucket_clasificator(double val) const {
-    double tx = transform_val(val);
-    double estimated_bucket = bucket_index.slope * tx + bucket_index.intersect;
-    return static_cast<long long>(estimated_bucket);
-  };
+    long long seg = find_segment(val);
+    double estimated = bucket_index.slopes[seg] * val + bucket_index.intercepts[seg];
+    long long b_id = static_cast<long long>(estimated);
+    long long max_b_idx = static_cast<long long>(bucket_index.bucket_start.size()) - 1;
+    return (b_id < 0) ? 0 : (b_id > max_b_idx ? max_b_idx : b_id);
+  }
 
 
 
-#define CLASSIFY_FAST(val, slope, intersect, param_a, param_b, max_b_idx, b_out) \
+#define CLASSIFY_FAST(val, min_val, range_span, num_segs, slopes_ptr, intercepts_ptr, max_b_idx, b_out) \
   do { \
-    double dx_macro_ = ((val) - (param_b)) * (param_a); \
-    union { double d; uint64_t i; } u_macro_{dx_macro_}; \
-    u_macro_.i &= 0x7FFFFFFFFFFFFFFFULL; \
-    double tx_macro_ = 0.5 * ((dx_macro_ / (1.0 + u_macro_.d)) + 1.0); \
-    long long b_macro_ = static_cast<long long>((slope) * tx_macro_ + (intersect)); \
+    double v_ = (val); \
+    long long seg_ = 0; \
+    if (v_ <= (min_val)) { \
+      seg_ = 0; \
+    } else if (v_ >= (min_val) + (range_span)) { \
+      seg_ = (num_segs) - 1; \
+    } else { \
+      double norm_ = (v_ - (min_val)) / (range_span); \
+      seg_ = static_cast<long long>(norm_ * (num_segs)); \
+      if (seg_ < 0) seg_ = 0; \
+      if (seg_ >= (num_segs)) seg_ = (num_segs) - 1; \
+    } \
+    double est_ = (slopes_ptr)[seg_] * v_ + (intercepts_ptr)[seg_]; \
+    long long b_macro_ = static_cast<long long>(est_); \
     (b_out) = (b_macro_ < 0) ? 0 : (b_macro_ > (max_b_idx) ? (max_b_idx) : b_macro_); \
   } while(0)
 
 
 
   // O(n)
-  void build_index(long long num_buckets = 0) {      
+  void build_index(long long num_buckets = 0, long long target_segment_size = 64) {      
     if (data.empty()) return;
     long long n = data.size();
-    if(num_buckets == 0) num_buckets = n;
+    if (num_buckets == 0) num_buckets = n;
 
     bucket_index.min_val = data.front();
     bucket_index.max_val = data.back();
     bucket_index.range_span = bucket_index.max_val - bucket_index.min_val;
     if (bucket_index.range_span <= 0) bucket_index.range_span = 1.0;
 
-    calculate_parameters(n, num_buckets);
+    long long num_segments = n / target_segment_size;
+    if (num_segments < 1000) num_segments = 1000;
+    if (num_segments > n) num_segments = n;
+
+    bucket_index.slopes.resize(num_segments);
+    bucket_index.intercepts.resize(num_segments);
+
+    double seg_width = bucket_index.range_span / num_segments;
+    double prev_y = 0.0;
+
+    // 1. Budowa segmentów (Liniowy kursor)
+    long long data_cursor = 0;
+    for (long long s = 0; s < num_segments; ++s) {
+      double x_first = bucket_index.min_val + s * seg_width;
+      double x_last = (s == num_segments - 1) ? bucket_index.max_val : (bucket_index.min_val + (s + 1) * seg_width);
+
+      while (data_cursor < n && data[data_cursor] < x_last) {
+        data_cursor++;
+      }
+
+      long long end_idx = (s == num_segments - 1) ? (n - 1) : (data_cursor > 0 ? data_cursor - 1 : 0);
+      if (end_idx >= n) end_idx = n - 1;
+
+      double dx = x_last - x_first;
+      double y_start = prev_y;
+      double y_end = static_cast<double>(end_idx);
+
+      double slope, intersect;
+      if (dx > 1e-9) {
+        slope = (y_end - y_start) / dx;
+        intersect = y_start - slope * x_first;
+      } else {
+        slope = 0.0;
+        intersect = y_start;
+      }
+
+      bucket_index.slopes[s] = slope;
+      bucket_index.intercepts[s] = intersect;
+      prev_y = slope * x_last + intersect;
+    }
 
     bucket_index.bucket_start.resize(num_buckets);
     bucket_index.counts.assign(num_buckets, 0);
@@ -145,33 +170,36 @@ struct SortedDataset {
     long long* start_ptr = bucket_index.bucket_start.data();
     long long* count_ptr = bucket_index.counts.data();
     
-    const double slope = bucket_index.slope;
-    const double intersect = bucket_index.intersect;
-    const double param_a = bucket_index.param_a;
-    const double param_b = bucket_index.param_b;
+    const double min_v = bucket_index.min_val;
+    const double span_v = bucket_index.range_span;
+    const double* slopes_ptr = bucket_index.slopes.data();
+    const double* intercepts_ptr = bucket_index.intercepts.data();
     const long long max_b_idx = num_buckets - 1;
 
     long long i = 0;
-    for (; i <= n - 4; i += 4) {
-      long long b0, b1, b2, b3;
+    for (; i <= n - 8; i += 8) {
+      long long b0, b1, b2, b3, b4, b5, b6, b7;
 
-      CLASSIFY_FAST(d_ptr[i],   slope, intersect, param_a, param_b, max_b_idx, b0);
-      CLASSIFY_FAST(d_ptr[i+1], slope, intersect, param_a, param_b, max_b_idx, b1);
-      CLASSIFY_FAST(d_ptr[i+2], slope, intersect, param_a, param_b, max_b_idx, b2);
-      CLASSIFY_FAST(d_ptr[i+3], slope, intersect, param_a, param_b, max_b_idx, b3);
+      CLASSIFY_FAST(d_ptr[i],   min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b0);
+      CLASSIFY_FAST(d_ptr[i+1], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b1);
+      CLASSIFY_FAST(d_ptr[i+2], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b2);
+      CLASSIFY_FAST(d_ptr[i+3], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b3);
+      CLASSIFY_FAST(d_ptr[i+4], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b4);
+      CLASSIFY_FAST(d_ptr[i+5], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b5);
+      CLASSIFY_FAST(d_ptr[i+6], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b6);
+      CLASSIFY_FAST(d_ptr[i+7], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b7);
 
-      count_ptr[b0]++;
-      count_ptr[b1]++;
-      count_ptr[b2]++;
-      count_ptr[b3]++;
-    };
+      count_ptr[b0]++; count_ptr[b1]++; count_ptr[b2]++; count_ptr[b3]++;
+      count_ptr[b4]++; count_ptr[b5]++; count_ptr[b6]++; count_ptr[b7]++;
+    }
 
     for (; i < n; ++i) {
       long long b_id;
-      CLASSIFY_FAST(d_ptr[i], slope, intersect, param_a, param_b, max_b_idx, b_id);
+      CLASSIFY_FAST(d_ptr[i], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b_id);
       count_ptr[b_id]++;
-    };
+    }
 
+    // 3. Wyznaczenie offsetów startowych (Prefix Sum / Inclusive Scan)
     long long current_pos = 0;
     for (long long b = 0; b < num_buckets; ++b) {
       long long cnt = count_ptr[b];
@@ -180,8 +208,8 @@ struct SortedDataset {
         current_pos += cnt;
       } 
       else start_ptr[b] = -1;
-    };  
-  };
+    }
+  }
 
 
 
@@ -210,7 +238,7 @@ struct SortedDataset {
 
 
 
-  // O(1) + O(log2(k))
+  // O(1) + O(log2(k)) 
   long long find_nearest_bucketed(double target) const {
     const long long n = data.size();
     if (n == 0) return -1;
@@ -222,9 +250,7 @@ struct SortedDataset {
     long long num_buckets = static_cast<long long>(bucket_index.bucket_start.size());
     long long max_b_idx = num_buckets - 1;
 
-    long long b_id;
-    CLASSIFY_FAST(target, bucket_index.slope, bucket_index.intersect, 
-                          bucket_index.param_a, bucket_index.param_b, max_b_idx, b_id);
+    long long b_id = bucket_clasificator(target);
 
     long long min_b = (b_id > 0) ? (b_id - 1) : 0;
     long long max_b = (b_id < max_b_idx) ? (b_id + 1) : max_b_idx;
@@ -274,13 +300,12 @@ struct SortedDataset {
 
 
   void print_params() const {
-    fmt::print(fmt::fg(fmt::color::cyan) | fmt::emphasis::bold, "\n=== Learned Index Parameters (Flat Direct) ===\n");
-    fmt::print(fmt::fg(fmt::color::green),  "  Dataset Size:       {}\n", data.size());
-    fmt::print(fmt::fg(fmt::color::yellow), "  Min / Max Value:    {:.4f} / {:.4f}\n", bucket_index.min_val, bucket_index.max_val);
-    fmt::print(fmt::fg(fmt::color::yellow), "  Range Span:         {:.4f}\n", bucket_index.range_span);
-    fmt::print(fmt::fg(fmt::color::yellow), "  Softsign Params:    param_a = {:.10f}, param_b = {:.4f}\n", bucket_index.param_a, bucket_index.param_b);
-    fmt::print(fmt::fg(fmt::color::green) | fmt::emphasis::bold, "  Global Model:       slope = {:.4f}, intersect = {:.4f}\n", bucket_index.slope, bucket_index.intersect);
-    fmt::print(fmt::fg(fmt::color::magenta), "  Total Buckets:      {}\n", bucket_index.bucket_start.size());
+    fmt::print(fmt::fg(fmt::color::cyan) | fmt::emphasis::bold, "\n=== Learned Index Parameters (O(1) Piecewise Linear) ===\n");
+    fmt::print(fmt::fg(fmt::color::green),  "  Dataset Size:        {}\n", data.size());
+    fmt::print(fmt::fg(fmt::color::yellow), "  Min / Max Value:     {:.4f} / {:.4f}\n", bucket_index.min_val, bucket_index.max_val);
+    fmt::print(fmt::fg(fmt::color::yellow), "  Range Span:          {:.4f}\n", bucket_index.range_span);
+    fmt::print(fmt::fg(fmt::color::yellow), "  Segments Count:      {}\n", bucket_index.slopes.size());
+    fmt::print(fmt::fg(fmt::color::magenta), "  Total Buckets:       {}\n", bucket_index.bucket_start.size());
     fmt::print(fmt::fg(fmt::color::cyan) | fmt::emphasis::bold, "===============================================\n\n");
   };
 
@@ -322,7 +347,80 @@ struct SortedDataset {
     fmt::println(fg(fmt::color::green), "  Max Elements Scanned per Query (Worst Case ±1 window): ~{}", worst_case_elements_to_scan);
     fmt::println("===========================================\n");
   }
+
+
+
+  void graph_bucket_clasificator_terminal(int width = 80, int height = 24) {
+    const auto& index = bucket_index;
+    if (index.slopes.empty() || index.intercepts.empty() || index.bucket_start.empty()) {
+      fmt::print(fmt::fg(fmt::color::red), "Index is empty, cannot draw graph.\n");
+      return;
+    }
+  
+    const double min_val = index.min_val;
+    const double max_val = index.max_val;
+    const double span = index.range_span;
+    const long long max_b_idx = static_cast<long long>(index.bucket_start.size()) - 1;
+  
+    if (max_b_idx <= 0 || span <= 0.0) {
+      fmt::print(fmt::fg(fmt::color::red), "Invalid index range for plotting.\n");
+      return;
+    }
+  
+    std::vector<std::string> canvas(height, std::string(width, ' '));
+    std::vector<long long> y_samples(width, 0);
+  
+    for (int col = 0; col < width; ++col) {
+      double ratio = (width > 1) ? static_cast<double>(col) / (width - 1) : 0.0;
+      double x = min_val + ratio * span;
+      long long b_id = bucket_clasificator(x);
+      y_samples[col] = b_id;
+    }
+  
+    for (int col = 0; col < width; ++col) {
+      int row = static_cast<int>(std::round((static_cast<double>(y_samples[col]) / max_b_idx) * (height - 1)));
+      row = std::clamp(row, 0, height - 1);
+      int screen_y = (height - 1) - row; 
+  
+      canvas[screen_y][col] = '*';
+  
+      if (col > 0) {
+        int prev_row = static_cast<int>(std::round((static_cast<double>(y_samples[col - 1]) / max_b_idx) * (height - 1)));
+        prev_row = std::clamp(prev_row, 0, height - 1);
+        int prev_screen_y = (height - 1) - prev_row;
+  
+        int y_start = std::min(screen_y, prev_screen_y);
+        int y_end = std::max(screen_y, prev_screen_y);
+        for (int y = y_start + 1; y < y_end; ++y) {
+          if (canvas[y][col] == ' ') {
+            canvas[y][col] = '|';
+          }
+        }
+      }
+    }
+  
+    fmt::print(fmt::fg(fmt::color::cyan) | fmt::emphasis::bold,
+               "\n=== Classifier Graph: bucket_clasificator(x) [Segments: {}] ===\n",
+               index.slopes.size());
+  
+    for (int r = 0; r < height; ++r) {
+      double y_label_val = static_cast<double>(max_b_idx) * (height - 1 - r) / (height - 1);
+      fmt::print(fmt::fg(fmt::color::yellow), "{:>10.0f} |", y_label_val);
+      fmt::print(fmt::fg(fmt::color::green), "{}\n", canvas[r]);
+    }
+  
+    fmt::print(fmt::fg(fmt::color::yellow), "{:>10} +{}\n", "", std::string(width, '-'));
+    
+    double mid_val = min_val + span * 0.5;
+    std::string x_labels = fmt::format("{:<16.2f}{:^48.2f}{:>16.2f}", min_val, mid_val, max_val);
+    fmt::print(fmt::fg(fmt::color::cyan), "{:>12}{}\n\n", "", x_labels);
+  };
 };
+
+
+
+
+
 
 
 
@@ -530,11 +628,12 @@ int main(){
     fmt::println(fg(fmt::color::green), "SUCCESS: Checksums match perfectly!");
     fmt::println(fg(fmt::color::green), "Standard Checksum: {}, Bucketed Checksum: {}", checksum_std, checksum_bucket);
   };
-
-
   
+
+
   dataset.print_params();
   dataset.analyze_index_stats();
+  dataset.graph_bucket_clasificator_terminal(50, 50);
 
 
 
