@@ -124,7 +124,7 @@ struct SortedDataset {
 
     long long num_segments = n / target_segment_size;
     if (num_segments < 1000) num_segments = 1000;
-    if (num_segments > n) num_segments = n;
+    if (num_segments > 65536) num_segments = 65536; 
 
     bucket_index.slopes.resize(num_segments);
     bucket_index.intercepts.resize(num_segments);
@@ -132,18 +132,15 @@ struct SortedDataset {
     double seg_width = bucket_index.range_span / num_segments;
     double prev_y = 0.0;
 
-    // 1. Budowa segmentów (Liniowy kursor)
     long long data_cursor = 0;
     for (long long s = 0; s < num_segments; ++s) {
       double x_first = bucket_index.min_val + s * seg_width;
       double x_last = (s == num_segments - 1) ? bucket_index.max_val : (bucket_index.min_val + (s + 1) * seg_width);
 
-      while (data_cursor < n && data[data_cursor] < x_last) {
-        data_cursor++;
-      }
-
-      long long end_idx = (s == num_segments - 1) ? (n - 1) : (data_cursor > 0 ? data_cursor - 1 : 0);
+      auto it = std::lower_bound(data.begin() + data_cursor, data.end(), x_last);
+      long long end_idx = std::distance(data.begin(), it);
       if (end_idx >= n) end_idx = n - 1;
+      data_cursor = end_idx; 
 
       double dx = x_last - x_first;
       double y_start = prev_y;
@@ -156,12 +153,12 @@ struct SortedDataset {
       } else {
         slope = 0.0;
         intersect = y_start;
-      }
+      };
 
       bucket_index.slopes[s] = slope;
       bucket_index.intercepts[s] = intersect;
       prev_y = slope * x_last + intersect;
-    }
+    };
 
     bucket_index.bucket_start.resize(num_buckets);
     bucket_index.counts.assign(num_buckets, 0);
@@ -199,7 +196,6 @@ struct SortedDataset {
       count_ptr[b_id]++;
     }
 
-    // 3. Wyznaczenie offsetów startowych (Prefix Sum / Inclusive Scan)
     long long current_pos = 0;
     for (long long b = 0; b < num_buckets; ++b) {
       long long cnt = count_ptr[b];
