@@ -71,7 +71,6 @@ public:
       std::random_device dev;
       std::mt19937 rng(dev());
       std::uniform_real_distribution<double> dist_dense(DATA_DENSE_MIN_VAL, DATA_DENSE_MAX_VAL);
-      std::uniform_real_distribution<double> dist_outlier(DATA_OFFSET_MIN_VAL, DATA_OFFSET_MAX_VAL);
       
       fmt::println(fg(fmt::color::pink), "\nGenerating Skewed Data with Outliers");
       for(long long i = 0; i < DATA_SIZE; i++) {
@@ -112,14 +111,15 @@ public:
   
     fmt::println(fg(fmt::color::pink), "Generating Queries for Offset Case");
     std::uniform_real_distribution<double> dist_dense(DATA_DENSE_MIN_VAL, DATA_DENSE_MAX_VAL);
-    std::uniform_real_distribution<double> dist_outlier(DATA_OFFSET_MIN_VAL, DATA_OFFSET_MAX_VAL);
     std::bernoulli_distribution choice(0.99); 
-    
-    for(int i = 0; i < NUM_QUERIES; ++i) {
-      if (choice(rng)) test_targets.push_back(dist_dense(rng));
-      else test_targets.push_back(dist_outlier(rng));
+  
+    fmt::println(fg(fmt::color::pink), "\nGenerating Skewed Data with Outliers");
+    for(long long i = 0; i < NUM_QUERIES; i++) {
+      if      (i < NUM_QUERIES * 0.25) test_targets.emplace_back(dist_dense(rng));
+      else if (i < NUM_QUERIES * 0.50) test_targets.emplace_back(dist_dense(rng) + 100);
+      else if (i < NUM_QUERIES * 0.75) test_targets.emplace_back(dist_dense(rng) + 200);
+      else                             test_targets.emplace_back(dist_dense(rng) + 300);
     };
-    
   
     return test_targets;
   };

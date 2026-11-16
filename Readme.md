@@ -1,27 +1,46 @@
-## Installation
-### VCPKG
-[Link](https://vcpkg.io/en/)
+<div align=center>
 
+# Search Algorithm
+
+</div>
+
+
+
+## TOC
+- [Installation](#installation)
+- [Main Idea](#nain-idea)
+- [Results](#results)
+
+
+
+## Installation
 ### Download dependencies
+[vcpkg](https://vcpkg.io/en/)
 ```bash
 vcpkg install --x-install-root=./vendor
 ```
 
-### Compilation and Run
+### Compile and Run
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build && nice -20 ./build/search
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build && ./build/search
 ```
 
 
 
 ## Main Idea
-Tworzymy dodatkową strukture $O(n)$ w której możemy znaleźć odpowiedni przedział danych w $O(1)$ potem w tym przedziale przeszukujemy po przez użycie Binary Searcha $O(log_{2}{n})$. Duża zależność od rozkładu danych w najgorszym przypadku $O(log_{2}{n})$.
+### Build index
+1. We split `data.size()` into `n` equal sections. For each section we calulate **slope** and **intersect** base on `min` and `max` value in range. We also store `min` and `max` of all data accessing each segment is geting percent from value relative to global `min` and `max`. This structure is used to model bucket distribution function that optimzes buckets. Function is monotonic bijection for each entry we get one bucket.
+2. For each element in `data` we calulate `bid = bucket_clasificator(value)` and emplace index in corect bucket.
+
+### Search for value
+1. **Explenation**: When we search for value we first calulate `bid = bucket_clasificator(value)`. Then we get left and right neighbor. Check `min` and `max` of each one and chose one to search in by BSearch. 
+2. **Time Complexity**: Becouse of `buckets == data.size()` we get $O(1) + O(log_{2}{\frac{n}{b}}) \implies O(1)$
 
 
 
-## Organiczenia
-Struktura jest mocna w masowym przeszukiwaniu nie edytowalnych danych ale dla dynamicznie zmieniających się bedzie słabasza przez powód generowania dodatkowej tablicy reversu. Można by było rozbudować rozwiazanie o insert, remove dla edytowania tylko zmiany i aktualizacjia bucketow. Rozkład bucketow jest liniowy co powoduje edge casy jak np 1M 0.1f i jeden 2000000.0f wtedy do jednego bucketu trafia masa danych i przeszukujemy dużo danych z jednego bucketa w $O(log_{2}{n})$ worst case scenario. Można by było użyć metoda statystycznych by generować buckety o różnych rozmiarach oraz uzyć Statystyki Normalnej lub innej odwzorowującej nasze dane.
-
+<!-- ## Organiczenia
+# Struktura jest mocna w masowym przeszukiwaniu nie edytowalnych danych ale dla dynamicznie zmieniających się bedzie słabasza przez powód generowania dodatkowej tablicy reversu. Można by było rozbudować rozwiazanie o insert, remove dla edytowania tylko zmiany i aktualizacjia bucketow. Rozkład bucketow jest liniowy co powoduje edge casy jak np 1M 0.1f i jeden 2000000.0f wtedy do jednego bucketu trafia masa danych i przeszukujemy dużo danych z jednego bucketa w $O(log_{2}{n})$ worst case scenario. Można by było użyć metoda statystycznych by generować buckety o różnych rozmiarach oraz uzyć Statystyki Normalnej lub innej odwzorowującej nasze dane.
+-->
 
 
 ## Results 
