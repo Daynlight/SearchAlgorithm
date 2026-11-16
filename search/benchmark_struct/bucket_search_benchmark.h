@@ -29,6 +29,7 @@ public:
 
   void freeData() {
     dataset.clear();
+    checksum = 0;
   };
 
 

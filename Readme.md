@@ -52,8 +52,11 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build &
 === Creating Benchmark Structure ===
 === Linear Distribution Enviroment ===
 === Prepare Data
-=== Loading Data from File ===
-Successfully loaded size: 100000000
+
+Generating Data
+[=======================================>] [00m:05s<00m:00s]                                                                                                                                                                                
+=== Saving Data to Binary File ===
+Data saved to data/data.bin
 
 size: 100000000
 
@@ -63,46 +66,48 @@ Generating Queries for Standard Case
 
 === Binary Search Setting Data ===
 === Binary Search Prepare Structure ===
-Binary Search Prepare Time: 0.000 ms
+
+Sorting Data
+Binary Search Prepare Time: 22663.662 ms
 === Binary Search Running Benchmarks (100000000 queries) ===
-Binary Search Querry Time: 131015.862 ms
+Binary Search Querry Time: 89397.937 ms
 === Bucketed Search Setting Data ===
 === Bucketed Search Prepare Structure ===
-Bucketed Search Prepare Time: 2967.251 ms
+Bucketed Search Prepare Time: 8475.770 ms
 === Bucketed Search Running Benchmarks (100000000 queries) ===
-Bucketed Search Querry Time: 34298.032 ms
+Bucketed Search Querry Time: 24224.233 ms
 === Results ===
 === Results for Binary Search ===
 Querry Binary Search:
-  Total Time:   131015.862 ms
-  Per Query:    0.001310 ms
+  Total Time:   89397.937 ms
+  Per Query:    0.000894 ms
 Querry + Prepare Binary Search:
-  Total Time:    131015.862 ms
-  Per Query:     0.001310 ms
+  Total Time:    112061.599 ms
+  Per Query:     0.001121 ms
 === Results for Bucketed Search ===
 Querry Bucketed Search:
-  Total Time:   34298.032 ms
-  Per Query:    0.000343 ms
+  Total Time:   24224.233 ms
+  Per Query:    0.000242 ms
 Querry + Prepare Bucketed Search:
-  Total Time:    37265.282 ms
-  Per Query:     0.000373 ms
+  Total Time:    32700.003 ms
+  Per Query:     0.000327 ms
 
 === Performance Leaderboard & Gaps ===
-#1  | Bucketed Search                | Query Time:  34298.032 ms | Total Time:  37265.282 ms
-     └─ vs #2: FASTER by 3.82x (saved 96717.831 ms)
-     └─ Min Queries for Profit: 3067946 queries (3.07% of dataset)
-#2  | Binary Search                  | Query Time: 131015.862 ms | Total Time: 131015.862 ms
+#1  | Bucketed Search                | Query Time:  24224.233 ms | Total Time:  32700.003 ms
+     └─ vs #2: FASTER by 3.69x (saved 65173.704 ms)
+     └─ Dominates from query #1 (better build time & query time)
+#2  | Binary Search                  | Query Time:  89397.937 ms | Total Time: 112061.599 ms
 
 SUCCESS: Checksums match perfectly!
-Binary Search Checksum: 4999536060897242
-Bucketed Search Checksum: 4999536060897242
+Binary Search Checksum: 4999930237504824
+Bucketed Search Checksum: 4999930237504824
 === Binary Search Info ===
 === Bucketed Search Info ===
 
 === Learned Index Parameters (O(1) Piecewise Linear) ===
   Dataset Size:        100000000
-  Min / Max Value:     -19999999.7405 / 19999999.7634
-  Range Span:          39999999.5039
+  Min / Max Value:     -19999999.9960 / 19999999.8296
+  Range Span:          39999999.8255
   Segments Count:      65536
   Total Buckets:       100000000
 ===============================================
@@ -110,8 +115,8 @@ Bucketed Search Checksum: 4999536060897242
 
 === Index Quality & Query Cost Analysis ===
   Total Buckets:       100000000
-  Non-empty Buckets:   63226894 (63.23%)
-  Empty Buckets:       36773106
+  Non-empty Buckets:   63222656 (63.22%)
+  Empty Buckets:       36777344
   Avg Elements/Bucket: 1.58
   Max Bucket Size:     10 elements
   Max Elements Scanned per Query (Worst Case ±1 window): ~30
@@ -144,12 +149,17 @@ Bucketed Search Checksum: 4999536060897242
    4347826 |  ****                                                                          
          0 |**                                                                              
            +--------------------------------------------------------------------------------
-            -19999999.74                          0.01                           19999999.76
+            -20000000.00                         -0.08                           19999999.83
 
 === Step Distribution Enviroment ===
 === Prepare Data
-=== Loading Data from File ===
-Successfully loaded size: 100000000
+
+Generating Data
+
+Generating Skewed Data with Outliers
+[====================================>   ] [00m:02s<00m:00s]                                                                                                                                                                                
+=== Saving Data to Binary File ===
+Data saved to data/steps.data.bin
 
 size: 100000000
 
@@ -157,41 +167,45 @@ size: 100000000
 === Prepare Testing Data
 Generating Queries for Offset Case
 
+Generating Skewed Data with Outliers
+
 === Binary Search Setting Data ===
 === Binary Search Prepare Structure ===
-Binary Search Prepare Time: 0.000 ms
+
+Sorting Data
+Binary Search Prepare Time: 21029.730 ms
 === Binary Search Running Benchmarks (100000000 queries) ===
-Binary Search Querry Time: 98710.346 ms
+Binary Search Querry Time: 76975.719 ms
 === Bucketed Search Setting Data ===
 === Bucketed Search Prepare Structure ===
-Bucketed Search Prepare Time: 2396.850 ms
+Bucketed Search Prepare Time: 7364.118 ms
 === Bucketed Search Running Benchmarks (100000000 queries) ===
-Bucketed Search Querry Time: 28920.375 ms
+Bucketed Search Querry Time: 22407.864 ms
 === Results ===
 === Results for Binary Search ===
 Querry Binary Search:
-  Total Time:   98710.346 ms
-  Per Query:    0.000987 ms
+  Total Time:   76975.719 ms
+  Per Query:    0.000770 ms
 Querry + Prepare Binary Search:
-  Total Time:    98710.346 ms
-  Per Query:     0.000987 ms
+  Total Time:    98005.450 ms
+  Per Query:     0.000980 ms
 === Results for Bucketed Search ===
 Querry Bucketed Search:
-  Total Time:   28920.375 ms
-  Per Query:    0.000289 ms
+  Total Time:   22407.864 ms
+  Per Query:    0.000224 ms
 Querry + Prepare Bucketed Search:
-  Total Time:    31317.226 ms
-  Per Query:     0.000313 ms
+  Total Time:    29771.982 ms
+  Per Query:     0.000298 ms
 
 === Performance Leaderboard & Gaps ===
-#1  | Bucketed Search                | Query Time:  28920.375 ms | Total Time:  31317.226 ms
-     └─ vs #2: FASTER by 3.41x (saved 69789.970 ms)
-     └─ Min Queries for Profit: 3434376 queries (3.43% of dataset)
-#2  | Binary Search                  | Query Time:  98710.346 ms | Total Time:  98710.346 ms
+#1  | Bucketed Search                | Query Time:  22407.864 ms | Total Time:  29771.982 ms
+     └─ vs #2: FASTER by 3.44x (saved 54567.855 ms)
+     └─ Dominates from query #1 (better build time & query time)
+#2  | Binary Search                  | Query Time:  76975.719 ms | Total Time:  98005.450 ms
 
 SUCCESS: Checksums match perfectly!
-Binary Search Checksum: 6337127427305815
-Bucketed Search Checksum: 6337127427305815
+Binary Search Checksum: 5000148470307501
+Bucketed Search Checksum: 5000148470307501
 === Binary Search Info ===
 === Bucketed Search Info ===
 
@@ -206,8 +220,8 @@ Bucketed Search Checksum: 6337127427305815
 
 === Index Quality & Query Cost Analysis ===
   Total Buckets:       100000000
-  Non-empty Buckets:   63220060 (63.22%)
-  Empty Buckets:       36779940
+  Non-empty Buckets:   63219177 (63.22%)
+  Empty Buckets:       36780823
   Avg Elements/Bucket: 1.58
   Max Bucket Size:     11 elements
   Max Elements Scanned per Query (Worst Case ±1 window): ~33

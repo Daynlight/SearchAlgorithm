@@ -76,10 +76,7 @@ public:
         if (i % 10000 == 0) bar.set_progress(i);
       };
       fmt::print("\n");
-  
-      fmt::println(fg(fmt::color::pink), "\nSorting Data");
-      std::sort(data.begin(), data.end());
-  
+   
       fmt::println(fg(fmt::color::yellow), "=== Saving Data to Binary File ===");
       std::ofstream file(filename, std::ios::binary);
       if (file) {
