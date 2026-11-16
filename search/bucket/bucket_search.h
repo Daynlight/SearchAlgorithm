@@ -101,6 +101,9 @@ struct SortedDataset {
   // O(n)
   void build_index(long long num_buckets = 0, long long target_segment_size = 64) {      
     if (data.empty()) return;
+    
+    std::sort(data.begin(), data.end());
+    
     long long n = data.size();
     if (num_buckets == 0) num_buckets = n;
 

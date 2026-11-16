@@ -53,13 +53,17 @@ public:
 
   void freeData() {
     data.clear();
+    checksum = 0;
   };
 
 
 
   void prepare() {
+    fmt::println(fg(fmt::color::pink), "\nSorting Data");
     auto start_build = std::chrono::high_resolution_clock::now();
+    std::sort(data.begin(), data.end());
     auto end_build = std::chrono::high_resolution_clock::now();
+    prepare_time = end_build - start_build;
   };
 
 
