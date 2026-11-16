@@ -77,20 +77,12 @@ struct SortedDataset {
 
 
 
-#define CLASSIFY_FAST(val, min_val, range_span, num_segs, slopes_ptr, intercepts_ptr, max_b_idx, b_out) \
+#define CLASSIFY_FAST(val, min_val, inv_span, num_segs, slopes_ptr, intercepts_ptr, max_b_idx, b_out) \
   do { \
     double v_ = (val); \
-    long long seg_ = 0; \
-    if (v_ <= (min_val)) { \
-      seg_ = 0; \
-    } else if (v_ >= (min_val) + (range_span)) { \
-      seg_ = (num_segs) - 1; \
-    } else { \
-      double norm_ = (v_ - (min_val)) / (range_span); \
-      seg_ = static_cast<long long>(norm_ * (num_segs)); \
-      if (seg_ < 0) seg_ = 0; \
-      if (seg_ >= (num_segs)) seg_ = (num_segs) - 1; \
-    } \
+    double norm_ = (v_ - (min_val)) * (inv_span); \
+    long long seg_ = static_cast<long long>(norm_ * (num_segs)); \
+    seg_ = (seg_ < 0) ? 0 : (seg_ >= (num_segs) ? ((num_segs) - 1) : seg_); \
     double est_ = (slopes_ptr)[seg_] * v_ + (intercepts_ptr)[seg_]; \
     long long b_macro_ = static_cast<long long>(est_); \
     (b_out) = (b_macro_ < 0) ? 0 : (b_macro_ > (max_b_idx) ? (max_b_idx) : b_macro_); \
@@ -99,82 +91,108 @@ struct SortedDataset {
 
 
   // O(n)
-  void build_index(long long num_buckets = 0, long long target_segment_size = 64) {      
+  void build_index(long long num_buckets = 0, long long target_segment_size = 64) {
     if (data.empty()) return;
-    
-    std::sort(data.begin(), data.end());
-    
-    long long n = data.size();
+
+    const long long n = static_cast<long long>(data.size());
     if (num_buckets == 0) num_buckets = n;
 
-    bucket_index.min_val = data.front();
-    bucket_index.max_val = data.back();
-    bucket_index.range_span = bucket_index.max_val - bucket_index.min_val;
-    if (bucket_index.range_span <= 0) bucket_index.range_span = 1.0;
+    const double* __restrict d_ptr = data.data();
+
+    double min_v = d_ptr[0];
+    double max_v = d_ptr[0];
+    for (long long i = 1; i < n; ++i) {
+      double v = d_ptr[i];
+      if (v < min_v) min_v = v;
+      if (v > max_v) max_v = v;
+    };
+
+    bucket_index.min_val = min_v;
+    bucket_index.max_val = max_v;
+    bucket_index.range_span = max_v - min_v;
+    if (bucket_index.range_span <= 0.0) bucket_index.range_span = 1.0;
+
+    const double inv_span = 1.0 / bucket_index.range_span;
 
     long long num_segments = n / target_segment_size;
     if (num_segments < 1000) num_segments = 1000;
-    if (num_segments > 65536) num_segments = 65536; 
+    if (num_segments > 65536) num_segments = 65536;
+
+    std::vector<long long> seg_counts(num_segments, 0);
+    long long* __restrict seg_cnt_ptr = seg_counts.data();
+    const double scale_seg = static_cast<double>(num_segments) * inv_span;
+    const long long max_seg_idx = num_segments - 1;
+
+    long long i = 0;
+    for (; i <= n - 4; i += 4) {
+      long long s0 = static_cast<long long>((d_ptr[i]   - min_v) * scale_seg);
+      long long s1 = static_cast<long long>((d_ptr[i+1] - min_v) * scale_seg);
+      long long s2 = static_cast<long long>((d_ptr[i+2] - min_v) * scale_seg);
+      long long s3 = static_cast<long long>((d_ptr[i+3] - min_v) * scale_seg);
+
+      s0 = (s0 < 0) ? 0 : (s0 > max_seg_idx ? max_seg_idx : s0);
+      s1 = (s1 < 0) ? 0 : (s1 > max_seg_idx ? max_seg_idx : s1);
+      s2 = (s2 < 0) ? 0 : (s2 > max_seg_idx ? max_seg_idx : s2);
+      s3 = (s3 < 0) ? 0 : (s3 > max_seg_idx ? max_seg_idx : s3);
+
+      seg_cnt_ptr[s0]++;
+      seg_cnt_ptr[s1]++;
+      seg_cnt_ptr[s2]++;
+      seg_cnt_ptr[s3]++;
+    };
+
+    for (; i < n; ++i) {
+      long long s = static_cast<long long>((d_ptr[i] - min_v) * scale_seg);
+      s = (s < 0) ? 0 : (s > max_seg_idx ? max_seg_idx : s);
+      seg_cnt_ptr[s]++;
+    };
 
     bucket_index.slopes.resize(num_segments);
     bucket_index.intercepts.resize(num_segments);
 
     double seg_width = bucket_index.range_span / num_segments;
-    double prev_y = 0.0;
+    double scale_to_buckets = static_cast<double>(num_buckets) / static_cast<double>(n);
+    long long cumulative_elements = 0;
 
-    long long data_cursor = 0;
     for (long long s = 0; s < num_segments; ++s) {
-      double x_first = bucket_index.min_val + s * seg_width;
-      double x_last = (s == num_segments - 1) ? bucket_index.max_val : (bucket_index.min_val + (s + 1) * seg_width);
+      double x_first = min_v + s * seg_width;
+      double x_last = (s == num_segments - 1) ? max_v : (min_v + (s + 1) * seg_width);
 
-      auto it = std::lower_bound(data.begin() + data_cursor, data.end(), x_last);
-      long long end_idx = std::distance(data.begin(), it);
-      if (end_idx >= n) end_idx = n - 1;
-      data_cursor = end_idx; 
+      double y_start = static_cast<double>(cumulative_elements) * scale_to_buckets;
+      cumulative_elements += seg_cnt_ptr[s];
+      double y_end = static_cast<double>(cumulative_elements) * scale_to_buckets;
 
       double dx = x_last - x_first;
-      double y_start = prev_y;
-      double y_end = static_cast<double>(end_idx);
-
-      double slope, intersect;
       if (dx > 1e-9) {
-        slope = (y_end - y_start) / dx;
-        intersect = y_start - slope * x_first;
+        double slope = (y_end - y_start) / dx;
+        bucket_index.slopes[s] = slope;
+        bucket_index.intercepts[s] = y_start - slope * x_first;
       } else {
-        slope = 0.0;
-        intersect = y_start;
+        bucket_index.slopes[s] = 0.0;
+        bucket_index.intercepts[s] = y_start;
       };
-
-      bucket_index.slopes[s] = slope;
-      bucket_index.intercepts[s] = intersect;
-      prev_y = slope * x_last + intersect;
     };
 
     bucket_index.bucket_start.resize(num_buckets);
     bucket_index.counts.assign(num_buckets, 0);
 
-    const double* d_ptr = data.data();
-    long long* start_ptr = bucket_index.bucket_start.data();
-    long long* count_ptr = bucket_index.counts.data();
-    
-    const double min_v = bucket_index.min_val;
-    const double span_v = bucket_index.range_span;
-    const double* slopes_ptr = bucket_index.slopes.data();
-    const double* intercepts_ptr = bucket_index.intercepts.data();
+    long long* __restrict start_ptr = bucket_index.bucket_start.data();
+    long long* __restrict count_ptr = bucket_index.counts.data();
+    const double* __restrict slopes_ptr = bucket_index.slopes.data();
+    const double* __restrict intercepts_ptr = bucket_index.intercepts.data();
     const long long max_b_idx = num_buckets - 1;
 
-    long long i = 0;
+    i = 0;
     for (; i <= n - 8; i += 8) {
       long long b0, b1, b2, b3, b4, b5, b6, b7;
-
-      CLASSIFY_FAST(d_ptr[i],   min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b0);
-      CLASSIFY_FAST(d_ptr[i+1], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b1);
-      CLASSIFY_FAST(d_ptr[i+2], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b2);
-      CLASSIFY_FAST(d_ptr[i+3], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b3);
-      CLASSIFY_FAST(d_ptr[i+4], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b4);
-      CLASSIFY_FAST(d_ptr[i+5], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b5);
-      CLASSIFY_FAST(d_ptr[i+6], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b6);
-      CLASSIFY_FAST(d_ptr[i+7], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b7);
+      CLASSIFY_FAST(d_ptr[i],   min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b0);
+      CLASSIFY_FAST(d_ptr[i+1], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b1);
+      CLASSIFY_FAST(d_ptr[i+2], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b2);
+      CLASSIFY_FAST(d_ptr[i+3], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b3);
+      CLASSIFY_FAST(d_ptr[i+4], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b4);
+      CLASSIFY_FAST(d_ptr[i+5], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b5);
+      CLASSIFY_FAST(d_ptr[i+6], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b6);
+      CLASSIFY_FAST(d_ptr[i+7], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b7);
 
       count_ptr[b0]++; count_ptr[b1]++; count_ptr[b2]++; count_ptr[b3]++;
       count_ptr[b4]++; count_ptr[b5]++; count_ptr[b6]++; count_ptr[b7]++;
@@ -182,18 +200,70 @@ struct SortedDataset {
 
     for (; i < n; ++i) {
       long long b_id;
-      CLASSIFY_FAST(d_ptr[i], min_v, span_v, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b_id);
+      CLASSIFY_FAST(d_ptr[i], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b_id);
       count_ptr[b_id]++;
     };
 
     long long current_pos = 0;
+    
     for (long long b = 0; b < num_buckets; ++b) {
       long long cnt = count_ptr[b];
-      if (cnt > 0) {
-        start_ptr[b] = current_pos;
-        current_pos += cnt;
-      } 
-      else start_ptr[b] = -1;
+      start_ptr[b] = current_pos;
+      current_pos += cnt;
+    };
+
+    std::vector<double> partitioned_data(n);
+    double* __restrict part_ptr = partitioned_data.data();
+
+    i = 0;
+    for (; i <= n - 4; i += 4) {
+      long long b0, b1, b2, b3;
+      CLASSIFY_FAST(d_ptr[i],   min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b0);
+      CLASSIFY_FAST(d_ptr[i+1], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b1);
+      CLASSIFY_FAST(d_ptr[i+2], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b2);
+      CLASSIFY_FAST(d_ptr[i+3], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b3);
+
+      part_ptr[start_ptr[b0]++] = d_ptr[i];
+      part_ptr[start_ptr[b1]++] = d_ptr[i+1];
+      part_ptr[start_ptr[b2]++] = d_ptr[i+2];
+      part_ptr[start_ptr[b3]++] = d_ptr[i+3];
+    };
+
+    for (; i < n; ++i) {
+      long long b_id;
+      CLASSIFY_FAST(d_ptr[i], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b_id);
+      part_ptr[start_ptr[b_id]++] = d_ptr[i];
+    };
+
+    data = std::move(partitioned_data);
+    double* __restrict sorted_ptr = data.data();
+
+    for (long long b = 0; b < num_buckets; ++b) {
+      long long cnt = count_ptr[b];
+      if (cnt == 0) {
+        start_ptr[b] = -1;
+      } else {
+        long long s = start_ptr[b] - cnt;
+        start_ptr[b] = s;
+
+        if (cnt == 2) {
+          if (sorted_ptr[s] > sorted_ptr[s + 1]) {
+            std::swap(sorted_ptr[s], sorted_ptr[s + 1]);
+          };
+        } else if (cnt > 2 && cnt <= 32) {
+          for (long long j = s + 1; j < s + cnt; ++j) {
+            double key = sorted_ptr[j];
+            long long k = j - 1;
+            while (k >= s && sorted_ptr[k] > key) {
+              sorted_ptr[k + 1] = sorted_ptr[k];
+              --k;
+            };
+            sorted_ptr[k + 1] = key;
+          };
+        } else if (cnt > 32) {
+          std::sort(sorted_ptr + s, sorted_ptr + s + cnt);
+        };
+      };
     };
   };
 
