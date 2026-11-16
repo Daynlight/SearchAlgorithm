@@ -59,7 +59,7 @@ We organize raw, unsorted numbers into tiny sorted buckets without ever sorting 
 
 ## Time complexity
 | Function / Component | Time Complexity | Space Complexity |
-| :--- | :--- | :--- | :--- |
+| :--- | :--- | :--- |
 | **`build_index`** | $\mathcal{O}(n)$ | $\mathcal{O}(n)$ |
 | **`find_segment`** | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ |
 | **`bucket_clasificator`** | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ |
