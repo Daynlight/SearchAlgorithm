@@ -32,7 +32,7 @@ struct BucketIndex {
 
 struct SortedDataset {
   std::vector<double> data;
-  BucketIndex bucket_index;
+  BucketIndex bucket_index; 
 
 
 
@@ -196,6 +196,16 @@ struct SortedDataset {
 
 
 
+  void clear() {
+    data.clear();
+    bucket_index.slopes.clear();
+    bucket_index.intercepts.clear();
+    bucket_index.bucket_start.clear();
+    bucket_index.counts.clear();
+  };
+
+
+
   // O(log2(n))
   long long find_nearest(double target) const {  
     if (data.empty()) return -1;
@@ -333,7 +343,7 @@ struct SortedDataset {
 
 
 
-  void graph_bucket_clasificator_terminal(int width = 80, int height = 24) {
+  void graph_bucket_clasificator_terminal(int width = 80, int height = 24) const {
     const auto& index = bucket_index;
     if (index.slopes.empty() || index.intercepts.empty() || index.bucket_start.empty()) {
       fmt::print(fmt::fg(fmt::color::red), "Index is empty, cannot draw graph.\n");
@@ -395,5 +405,4 @@ struct SortedDataset {
     fmt::print(fmt::fg(fmt::color::cyan), "{:>12}{}\n\n", "", x_labels);
   };
 };
-
 

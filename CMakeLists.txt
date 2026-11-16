@@ -5,7 +5,7 @@ find_package(fmt CONFIG REQUIRED)
 find_package(indicators CONFIG REQUIRED)
 
 set(src
-  main.cpp
+  search/main.cpp
 )
 
 add_executable(search ${src})

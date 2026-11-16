@@ -24,110 +24,203 @@ Struktura jest mocna w masowym przeszukiwaniu nie edytowalnych danych ale dla dy
 
 
 
-## Test on 1B data 7.5GB in Release mode linear distribution 50000000 searches
-```cpp
-#define DATA_SIZE 1000000000 
-#define DATA_MIN_VAL -20000000
-#define DATA_MAX_VAL 20000000
-#define NUM_QUERIES 50000000
-#define BUCKET_SIZE 100000000
-```
-```bash
+## Results 
+```txt
 ========================
 === Seach Algorithms ===
 ========================
+=== Creating Benchmark Envitoments ===
+=== Creating Benchmark Structure ===
+=== Linear Distribution Enviroment ===
 === Prepare Data
 === Loading Data from File ===
-Successfully loaded size: 1000000000
+Successfully loaded size: 100000000
 
-size: 1000000000
-size: 1000000000
-=== Building Bucket Index Structure ===
-Index Build Time: 15587.252 ms
+size: 100000000
+
+size: 100000000
+=== Prepare Testing Data
 Generating Queries for Standard Case
-=== Running Benchmarks (50000000 queries) ===
-Standard Binary Search:
-  Total Time:   61288.494 ms
-  Per Query:    0.001226 ms
-Bucketed Binary Search:
-  Total Time:   16683.708 ms
-  Per Query:    0.000334 ms
 
->>> Bucketed Binary Search is FASTER by 3.67x! <<<
-Total Standard Binary Search:
-  Total Time:    61288.494 ms
-  Per Query:     0.001226 ms
-Total Bucketed Binary Search (Build + Queries):
-  Total Time:    32270.960 ms
-  Per Query:     0.000645 ms
+=== Binary Search Setting Data ===
+=== Binary Search Prepare Structure ===
+Binary Search Prepare Time: 0.000 ms
+=== Binary Search Running Benchmarks (100000000 queries) ===
+Binary Search Querry Time: 131015.862 ms
+=== Bucketed Search Setting Data ===
+=== Bucketed Search Prepare Structure ===
+Bucketed Search Prepare Time: 2967.251 ms
+=== Bucketed Search Running Benchmarks (100000000 queries) ===
+Bucketed Search Querry Time: 34298.032 ms
+=== Results ===
+=== Results for Binary Search ===
+Querry Binary Search:
+  Total Time:   131015.862 ms
+  Per Query:    0.001310 ms
+Querry + Prepare Binary Search:
+  Total Time:    131015.862 ms
+  Per Query:     0.001310 ms
+=== Results for Bucketed Search ===
+Querry Bucketed Search:
+  Total Time:   34298.032 ms
+  Per Query:    0.000343 ms
+Querry + Prepare Bucketed Search:
+  Total Time:    37265.282 ms
+  Per Query:     0.000373 ms
 
->>> Total Bucketed Binary Search is FASTER by 1.90x! <<<
+=== Performance Leaderboard & Gaps ===
+#1  | Bucketed Search                | Query Time:  34298.032 ms | Total Time:  37265.282 ms
+     └─ vs #2: FASTER by 3.82x (saved 96717.831 ms)
+     └─ Min Queries for Profit: 3067946 queries (3.07% of dataset)
+#2  | Binary Search                  | Query Time: 131015.862 ms | Total Time: 131015.862 ms
+
 SUCCESS: Checksums match perfectly!
+Binary Search Checksum: 4999536060897242
+Bucketed Search Checksum: 4999536060897242
+=== Binary Search Info ===
+=== Bucketed Search Info ===
 
-=== Learned Index Parameters (Flat Direct) ===
-  Dataset Size:       1000000000
-  Min / Max Value:    -19999999.9574 / 19999999.9571
-  Range Span:         39999999.9146
-  Softsign Params:    param_a = 0.0000001276, param_b = 70.4979
-  Global Model:       slope = 139200120.8295, intersect = -19600010.7824
-  Total Buckets:      100000000
+=== Learned Index Parameters (O(1) Piecewise Linear) ===
+  Dataset Size:        100000000
+  Min / Max Value:     -19999999.7405 / 19999999.7634
+  Range Span:          39999999.5039
+  Segments Count:      65536
+  Total Buckets:       100000000
 ===============================================
-```
 
 
+=== Index Quality & Query Cost Analysis ===
+  Total Buckets:       100000000
+  Non-empty Buckets:   63226894 (63.23%)
+  Empty Buckets:       36773106
+  Avg Elements/Bucket: 1.58
+  Max Bucket Size:     10 elements
+  Max Elements Scanned per Query (Worst Case ±1 window): ~30
+===========================================
 
-## Test on 1B data 7.5GB in Release mode skewed and outline distribution 50000000 searches
-```cpp
-#define DATA_SIZE 1000000000 
 
-#define DATA_DENSE_MIN_VAL -10
-#define DATA_DENSE_MAX_VAL 10
-#define DATA_OFFSET_MIN_VAL 1000000
-#define DATA_OFFSET_MAX_VAL 10000000
-#define DATA_OFFSET_SIZE 100
+=== Classifier Graph: bucket_clasificator(x) [Segments: 65536] ===
+  99999999 |                                                                              **
+  95652173 |                                                                          ****  
+  91304347 |                                                                       ***      
+  86956521 |                                                                   ****         
+  82608695 |                                                                ***             
+  78260869 |                                                             ***                
+  73913043 |                                                         ****                   
+  69565217 |                                                      ***                       
+  65217391 |                                                  ****                          
+  60869565 |                                               ***                              
+  56521739 |                                           ****                                 
+  52173913 |                                        ***                                     
+  47826086 |                                     ***                                        
+  43478260 |                                 ****                                           
+  39130434 |                              ***                                               
+  34782608 |                          ****                                                  
+  30434782 |                       ***                                                      
+  26086956 |                   ****                                                         
+  21739130 |                ***                                                             
+  17391304 |             ***                                                                
+  13043478 |         ****                                                                   
+   8695652 |      ***                                                                       
+   4347826 |  ****                                                                          
+         0 |**                                                                              
+           +--------------------------------------------------------------------------------
+            -19999999.74                          0.01                           19999999.76
 
-#define NUM_QUERIES 50000000
-#define BUCKET_SIZE 100000000
-```
-```bash
-========================
-=== Seach Algorithms ===
-========================
+=== Step Distribution Enviroment ===
 === Prepare Data
 === Loading Data from File ===
-Successfully loaded size: 1000000000
+Successfully loaded size: 100000000
 
-size: 1000000000
-size: 1000000000
-=== Building Bucket Index Structure ===
-Index Build Time: 14922.781 ms
+size: 100000000
+
+size: 100000000
+=== Prepare Testing Data
 Generating Queries for Offset Case
-=== Running Benchmarks (50000000 queries) ===
-Standard Binary Search:
-  Total Time:   56592.497 ms
-  Per Query:    0.001132 ms
-Bucketed Binary Search:
-  Total Time:   15380.358 ms
-  Per Query:    0.000308 ms
 
->>> Bucketed Binary Search is FASTER by 3.68x! <<<
-Total Standard Binary Search:
-  Total Time:    56592.497 ms
-  Per Query:     0.001132 ms
-Total Bucketed Binary Search (Build + Queries):
-  Total Time:    30303.139 ms
-  Per Query:     0.000606 ms
+=== Binary Search Setting Data ===
+=== Binary Search Prepare Structure ===
+Binary Search Prepare Time: 0.000 ms
+=== Binary Search Running Benchmarks (100000000 queries) ===
+Binary Search Querry Time: 98710.346 ms
+=== Bucketed Search Setting Data ===
+=== Bucketed Search Prepare Structure ===
+Bucketed Search Prepare Time: 2396.850 ms
+=== Bucketed Search Running Benchmarks (100000000 queries) ===
+Bucketed Search Querry Time: 28920.375 ms
+=== Results ===
+=== Results for Binary Search ===
+Querry Binary Search:
+  Total Time:   98710.346 ms
+  Per Query:    0.000987 ms
+Querry + Prepare Binary Search:
+  Total Time:    98710.346 ms
+  Per Query:     0.000987 ms
+=== Results for Bucketed Search ===
+Querry Bucketed Search:
+  Total Time:   28920.375 ms
+  Per Query:    0.000289 ms
+Querry + Prepare Bucketed Search:
+  Total Time:    31317.226 ms
+  Per Query:     0.000313 ms
 
->>> Total Bucketed Binary Search is FASTER by 1.87x! <<<
+=== Performance Leaderboard & Gaps ===
+#1  | Bucketed Search                | Query Time:  28920.375 ms | Total Time:  31317.226 ms
+     └─ vs #2: FASTER by 3.41x (saved 69789.970 ms)
+     └─ Min Queries for Profit: 3434376 queries (3.43% of dataset)
+#2  | Binary Search                  | Query Time:  98710.346 ms | Total Time:  98710.346 ms
+
 SUCCESS: Checksums match perfectly!
+Binary Search Checksum: 6337127427305815
+Bucketed Search Checksum: 6337127427305815
+=== Binary Search Info ===
+=== Bucketed Search Info ===
 
-=== Learned Index Parameters (Flat Direct) ===
-  Dataset Size:       1000000000
-  Min / Max Value:    -10.0000 / 9805299.4124
-  Range Span:         9805309.4124
-  Softsign Params:    param_a = 0.2550957623, param_b = 0.0003
-  Global Model:       slope = 116387852.6585, intersect = -16387829.3929
-  Total Buckets:      100000000
+=== Learned Index Parameters (O(1) Piecewise Linear) ===
+  Dataset Size:        100000000
+  Min / Max Value:     -10.0000 / 310.0000
+  Range Span:          320.0000
+  Segments Count:      65536
+  Total Buckets:       100000000
 ===============================================
+
+
+=== Index Quality & Query Cost Analysis ===
+  Total Buckets:       100000000
+  Non-empty Buckets:   63220060 (63.22%)
+  Empty Buckets:       36779940
+  Avg Elements/Bucket: 1.58
+  Max Bucket Size:     11 elements
+  Max Elements Scanned per Query (Worst Case ±1 window): ~33
+===========================================
+
+
+=== Classifier Graph: bucket_clasificator(x) [Segments: 65536] ===
+  99999999 |                                                                               *
+  95652173 |                                                                              * 
+  91304347 |                                                                             *  
+  86956521 |                                                                            *   
+  82608695 |                                                                            |   
+  78260869 |                                                                           *    
+  73913043 |                                                      *********************     
+  69565217 |                                                     *                          
+  65217391 |                                                    *                           
+  60869565 |                                                    |                           
+  56521739 |                                                   *                            
+  52173913 |                              *********************                             
+  47826086 |                             *                                                  
+  43478260 |                            *                                                   
+  39130434 |                            |                                                   
+  34782608 |                           *                                                    
+  30434782 |                          *                                                     
+  26086956 |     *********************                                                      
+  21739130 |    *                                                                           
+  17391304 |    |                                                                           
+  13043478 |   *                                                                            
+   8695652 |  *                                                                             
+   4347826 | *                                                                              
+         0 |*                                                                               
+           +--------------------------------------------------------------------------------
+            -10.00                               150.00                               310.00
 ```
 
