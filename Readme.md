@@ -28,19 +28,44 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build &
 
 
 ## Main Idea
-### Build index
-1. We split `data.size()` into `n` equal sections. For each section we calulate **slope** and **intersect** base on `min` and `max` value in range. We also store `min` and `max` of all data accessing each segment is geting percent from value relative to global `min` and `max`. This structure is used to model bucket distribution function that optimzes buckets. Function is monotonic bijection for each entry we get one bucket.
-2. For each element in `data` we calulate `bid = bucket_clasificator(value)` and emplace index in corect bucket.
 
-### Search for value
-1. **Explenation**: When we search for value we first calulate `bid = bucket_clasificator(value)`. Then we get left and right neighbor. Check `min` and `max` of each one and chose one to search in by BSearch. 
-2. **Time Complexity**: Becouse of `buckets == data.size()` we get $O(1) + O(log_{2}{\frac{n}{b}}) \implies O(1)$
+Think of it like an **address book with letter tabs (`A`–`Z`)**: instead of flipping through millions of pages one by one with binary search, you calculate the exact tab a number belongs to and jump straight there.
+
+### 1. Build Index (`build_index`) — $O(n)$
+We organize raw, unsorted numbers into tiny sorted buckets without ever sorting the whole list at once:
+
+1. **Measure the Data (`min_val`, `max_val`)**:
+   - Scan the list once to find the smallest and largest numbers (`range_span = max_val - min_val`).
+2. **Divide & Count (`seg_counts`)**:
+   - Split the number range into `num_segments` equal slices (between 1,000 and 65,536) and count how many numbers land in each slice.
+3. **Create a Shortcut Formula (`slopes`, `intercepts`)**:
+   - Using those slice counts, draw a straight line (`slope * x + intercept`) for each slice that maps any number directly to its target bucket ID (`bucket_clasificator`). Crowded slices get spread across many buckets; empty slices get compressed. This function must be **monotonically non-decreasing** for corect data search.
+4. **Group & Sort Locally (`bucket_start`, `counts`)**:
+   - Calculate each bucket's starting position in memory, place every number into its assigned bucket, and sort each tiny bucket on its own (using fast insertion sort for small buckets and `std::sort` for larger ones). Because the buckets are already in order, the whole dataset ends up sorted.
+
+---
+
+### 2. Search for Nearest Value (`find_nearest_bucketed`) — $O(1)$ Expected
+1. **Jump to the Bucket**:
+   - Run `bucket_clasificator(target)` to instantly calculate the predicted bucket `b_id` in $O(1)$ math operations.
+2. **Check the $\pm 1$ Neighborhood**:
+   - Look at `b_id - 1`, `b_id`, and `b_id + 1` (skipping empty buckets) to pick the bucket whose range covers `target`. *(If all three are empty, fall back to standard binary search.)*
+3. **Pick the Closest Number**:
+   - Run a tiny binary search inside that single bucket and return whichever neighbor (`left` or `right`) is closer to `target`.
+4. **Speed**:
+   - Because `num_buckets` equals `data.size()`, each bucket only holds a few numbers on average—turning an $O(\log n)$ search across millions of items into a near-instant $O(1)$ lookup.
 
 
 
-<!-- ## Organiczenia
-# Struktura jest mocna w masowym przeszukiwaniu nie edytowalnych danych ale dla dynamicznie zmieniających się bedzie słabasza przez powód generowania dodatkowej tablicy reversu. Można by było rozbudować rozwiazanie o insert, remove dla edytowania tylko zmiany i aktualizacjia bucketow. Rozkład bucketow jest liniowy co powoduje edge casy jak np 1M 0.1f i jeden 2000000.0f wtedy do jednego bucketu trafia masa danych i przeszukujemy dużo danych z jednego bucketa w $O(log_{2}{n})$ worst case scenario. Można by było użyć metoda statystycznych by generować buckety o różnych rozmiarach oraz uzyć Statystyki Normalnej lub innej odwzorowującej nasze dane.
--->
+## Time complexity
+| Function / Component | Time Complexity | Space Complexity |
+| :--- | :--- | :--- | :--- |
+| **`build_index`** | $\mathcal{O}(n)$ | $\mathcal{O}(n)$ |
+| **`find_segment`** | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ |
+| **`bucket_clasificator`** | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ |
+| **`find_nearest_bucketed`** | $\mathcal{O}(1) + \mathcal{O}(\log k)$ | $\mathcal{O}(1)$ |
+| **`find_nearest` (Fallback)** | $\mathcal{O}(\log n)$ | $\mathcal{O}(1)$ |
+
 
 
 ## Results 
