@@ -130,7 +130,7 @@ void run(std::vector<std::unique_ptr<IBenchmarkStruct<double>>>& benchmark_struc
       long long checksum = benchmark_structures[0]->getChecksum();
       for(const std::unique_ptr<IBenchmarkStruct<double>>& el : benchmark_structures) {
         if(checksum != el->getChecksum()) {
-          all_checksums_eq == false;
+          all_checksums_eq = false;
           break;
         };
       };
