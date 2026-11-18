@@ -53,6 +53,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build &
 int main() {
   std::vector<double> data = {1, 2, 3, 1, 2, 6, 1, 7, 1};
   std::vector<double> test = {1.5, 2 2.1231, 23.05};
+  long long checksum = 0;
 
   SortedDataset<double> dataset;
   dataset.data = std::move(data);
@@ -66,6 +67,8 @@ int main() {
   dataset.graph_bucket_clasificator_terminal();
 
   dataset.clear();
+
+  printf("checksum: %d", checksum);
  
   return 0;
 };
