@@ -9,6 +9,9 @@
 ## TOC
 - [Installation](#installation)
 - [Main Idea](#nain-idea)
+- [Time complexity](#time-complexity)
+  - [Deep Functions](#deep-functions)
+  - [Short Table](#short-table)
 - [Results](#results)
 
 
@@ -28,7 +31,6 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build &
 
 
 ## Main Idea
-
 Think of it like an **address book with letter tabs (`A`–`Z`)**: instead of flipping through millions of pages one by one with binary search, you calculate the exact tab a number belongs to and jump straight there.
 
 ### 1. Build Index (`build_index`) — $O(n)$
@@ -58,6 +60,46 @@ We organize raw, unsorted numbers into tiny sorted buckets without ever sorting 
 
 
 ## Time complexity
+### Deep Functions
+#### inline double fast_abs(double x) const;
+##### Function
+$f(n) = 2 \implies \mathcal{O}(1)$
+#### inline long long find_segment(double value) const;
+##### Function
+$f(n) = 7 \implies \mathcal{O}(1)$
+#### long long bucket_clasificator(double val) const, CLASIFY_FAST;
+##### Function
+$f(n) = 16 \implies \mathcal{O}(1)$
+#### void build_index(long long num_buckets = 0, long long target_segment_size = 64);
+##### Function
+$
+  n \implies \text{size of data}  \\  
+  b = n \implies \text{size of buckets}  \\  
+  s \in (1000, 65536) \implies \text{size of segments}  \\  
+  k \approx \frac{n}{b} \approx 1 \implies \text{elements in bucket ideal data distribution aproach 1}  \\  
+$
+$f(n, b, s) = 61n + 24s + b(5 + klog_{2}{k}) - 73\\$
+$f(n, b, s) = 61n + 24s + 6b - 73 \implies \mathcal{O}(n)\\$
+#### void clear();
+##### Function
+$f(n) = 5$
+#### long long find_nearest(double target) const;
+##### Function
+$
+  n \implies \text{size of data} \\ 
+$
+$f(n) = nlog_{2}{n} + 18$
+#### long long find_nearest_bucketed(double target) const;
+##### Function
+$
+  n \implies \text{size of data}  \\  
+  b = n \implies \text{size of buckets}  \\  
+  k \approx \frac{n}{b} \approx 1 \implies \text{elements in bucket ideal data distribution aproach 1}  \\  
+$
+$f(n, k) = 10\log_{2}{k} + 54\\$
+$f(n) = 64 \implies \mathcal{O}(1)\\$
+
+### Short Table
 | Function / Component | Time Complexity | Space Complexity |
 | :--- | :--- | :--- |
 | **`build_index`** | $\mathcal{O}(n)$ | $\mathcal{O}(n)$ |

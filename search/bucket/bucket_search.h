@@ -42,37 +42,37 @@ struct SortedDataset {
       double d;
       uint64_t i;
     } u;
-    u.d = x;                                                                    // 1
-    u.i &= 0x7FFFFFFFFFFFFFFFULL;                                               // 1
-    return u.d;                                                                 // 0
+    u.d = x;                                                                              // 1
+    u.i &= 0x7FFFFFFFFFFFFFFFULL;                                                         // 1
+    return u.d;                                                                           // 0
   };
 
 
 
-  // O(1)
+  // [3, 7] op,  O(1)
   inline long long find_segment(double val) const {
-    const long long num_segs = static_cast<long long>(bucket_index.slopes.size());
-    if (num_segs <= 1) return 0;
-    if (val <= bucket_index.min_val) return 0;
-    if (val >= bucket_index.max_val) return num_segs - 1;
+    const long long num_segs = static_cast<long long>(bucket_index.slopes.size());        // 2
+    if (num_segs <= 1) return 0;                                                          // 1
+    if (val <= bucket_index.min_val) return 0;                                            // 1
+    if (val >= bucket_index.max_val) return num_segs - 1;                                 // 1
 
-    double normalized = (val - bucket_index.min_val) / bucket_index.range_span;
-    long long seg = static_cast<long long>(normalized * num_segs);
+    double normalized = (val - bucket_index.min_val) / bucket_index.range_span;           // 3
+    long long seg = static_cast<long long>(normalized * num_segs);                        // 2
     
-    if (seg < 0) return 0;
-    if (seg >= num_segs) return num_segs - 1;
-    return seg;
+    if (seg < 0) return 0;                                                                // 1
+    if (seg >= num_segs) return num_segs - 1;                                             // 1
+    return seg;                                                                           // 0
   };
 
 
 
-  // O(1)
+  // 16 op, O(1)
   long long bucket_clasificator(double val) const {
-    long long seg = find_segment(val);
-    double estimated = bucket_index.slopes[seg] * val + bucket_index.intercepts[seg];
-    long long b_id = static_cast<long long>(estimated);
-    long long max_b_idx = static_cast<long long>(bucket_index.bucket_start.size()) - 1;
-    return (b_id < 0) ? 0 : (b_id > max_b_idx ? max_b_idx : b_id);
+    long long seg = find_segment(val);                                                    // 7 + 1 = 8
+    double estimated = bucket_index.slopes[seg] * val + bucket_index.intercepts[seg];     // 3
+    long long b_id = static_cast<long long>(estimated);                                   // 1
+    long long max_b_idx = static_cast<long long>(bucket_index.bucket_start.size()) - 1;   // 3
+    return (b_id < 0) ? 0 : (b_id > max_b_idx ? max_b_idx : b_id);                        // 1
   };
 
 
@@ -90,100 +90,100 @@ struct SortedDataset {
 
 
 
-  // O(n)
+  // f(n, b, s) = 61n + 24s + 6b - 73 op, O(n)
   void build_index(long long num_buckets = 0, long long target_segment_size = 64) {
-    if (data.empty()) return;
+    if (data.empty()) return;                                                             // 1
 
-    const long long n = static_cast<long long>(data.size());
-    if (num_buckets == 0) num_buckets = n;
+    const long long n = static_cast<long long>(data.size());                              // 2
+    if (num_buckets == 0) num_buckets = n;                                                // 2
 
-    const double* __restrict d_ptr = data.data();
+    const double* __restrict d_ptr = data.data();                                         // 2
 
-    double min_v = d_ptr[0];
-    double max_v = d_ptr[0];
-    for (long long i = 1; i < n; ++i) {
-      double v = d_ptr[i];
-      if (v < min_v) min_v = v;
-      if (v > max_v) max_v = v;
+    double min_v = d_ptr[0];                                                              // 1
+    double max_v = d_ptr[0];                                                              // 1
+    for (long long i = 1; i < n; ++i) {                                                   // n
+      double v = d_ptr[i];                                                                  // 1 
+      if (v < min_v) min_v = v;                                                             // 2
+      if (v > max_v) max_v = v;                                                             // 2
     };
 
-    bucket_index.min_val = min_v;
-    bucket_index.max_val = max_v;
-    bucket_index.range_span = max_v - min_v;
-    if (bucket_index.range_span <= 0.0) bucket_index.range_span = 1.0;
+    bucket_index.min_val = min_v;                                                         // 1
+    bucket_index.max_val = max_v;                                                         // 1
+    bucket_index.range_span = max_v - min_v;                                              // 2
+    if (bucket_index.range_span <= 0.0) bucket_index.range_span = 1.0;                    // 2
 
-    const double inv_span = 1.0 / bucket_index.range_span;
+    const double inv_span = 1.0 / bucket_index.range_span;                                // 2
 
-    long long num_segments = n / target_segment_size;
-    if (num_segments < 1000) num_segments = 1000;
-    if (num_segments > 65536) num_segments = 65536;
+    long long num_segments = n / target_segment_size;                                     // 2
+    if (num_segments < 1000) num_segments = 1000;                                         // 2
+    if (num_segments > 65536) num_segments = 65536;                                       // 2
 
-    std::vector<long long> seg_counts(num_segments, 0);
-    long long* __restrict seg_cnt_ptr = seg_counts.data();
-    const double scale_seg = static_cast<double>(num_segments) * inv_span;
-    const long long max_seg_idx = num_segments - 1;
+    std::vector<long long> seg_counts(num_segments, 0);                                   // s
+    long long* __restrict seg_cnt_ptr = seg_counts.data();                                // 2
+    const double scale_seg = static_cast<double>(num_segments) * inv_span;                // 2
+    const long long max_seg_idx = num_segments - 1;                                       // 2
 
-    long long i = 0;
-    for (; i <= n - 4; i += 4) {
-      long long s0 = static_cast<long long>((d_ptr[i]   - min_v) * scale_seg);
-      long long s1 = static_cast<long long>((d_ptr[i+1] - min_v) * scale_seg);
-      long long s2 = static_cast<long long>((d_ptr[i+2] - min_v) * scale_seg);
-      long long s3 = static_cast<long long>((d_ptr[i+3] - min_v) * scale_seg);
+    long long i = 0;                                                                      // 1
+    for (; i <= n - 4; i += 4) {                                                          // (n - 4) / 4
+      long long s0 = static_cast<long long>((d_ptr[i]   - min_v) * scale_seg);              // 3
+      long long s1 = static_cast<long long>((d_ptr[i+1] - min_v) * scale_seg);              // 3
+      long long s2 = static_cast<long long>((d_ptr[i+2] - min_v) * scale_seg);              // 3
+      long long s3 = static_cast<long long>((d_ptr[i+3] - min_v) * scale_seg);              // 3
 
-      s0 = (s0 < 0) ? 0 : (s0 > max_seg_idx ? max_seg_idx : s0);
-      s1 = (s1 < 0) ? 0 : (s1 > max_seg_idx ? max_seg_idx : s1);
-      s2 = (s2 < 0) ? 0 : (s2 > max_seg_idx ? max_seg_idx : s2);
-      s3 = (s3 < 0) ? 0 : (s3 > max_seg_idx ? max_seg_idx : s3);
+      s0 = (s0 < 0) ? 0 : (s0 > max_seg_idx ? max_seg_idx : s0);                            // [1, 2]
+      s1 = (s1 < 0) ? 0 : (s1 > max_seg_idx ? max_seg_idx : s1);                            // [1, 2]
+      s2 = (s2 < 0) ? 0 : (s2 > max_seg_idx ? max_seg_idx : s2);                            // [1, 2]
+      s3 = (s3 < 0) ? 0 : (s3 > max_seg_idx ? max_seg_idx : s3);                            // [1, 2]
 
-      seg_cnt_ptr[s0]++;
-      seg_cnt_ptr[s1]++;
-      seg_cnt_ptr[s2]++;
-      seg_cnt_ptr[s3]++;
+      seg_cnt_ptr[s0]++;                                                                    // 1
+      seg_cnt_ptr[s1]++;                                                                    // 1
+      seg_cnt_ptr[s2]++;                                                                    // 1
+      seg_cnt_ptr[s3]++;                                                                    // 1
     };
 
-    for (; i < n; ++i) {
-      long long s = static_cast<long long>((d_ptr[i] - min_v) * scale_seg);
-      s = (s < 0) ? 0 : (s > max_seg_idx ? max_seg_idx : s);
-      seg_cnt_ptr[s]++;
+    for (; i < n; ++i) {                                                                    // n
+      long long s = static_cast<long long>((d_ptr[i] - min_v) * scale_seg);                   // 3
+      s = (s < 0) ? 0 : (s > max_seg_idx ? max_seg_idx : s);                                  // [1, 2]
+      seg_cnt_ptr[s]++;                                                                       // 1
     };
 
-    bucket_index.slopes.resize(num_segments);
-    bucket_index.intercepts.resize(num_segments);
+    bucket_index.slopes.resize(num_segments);                                               // s
+    bucket_index.intercepts.resize(num_segments);                                           // s
 
-    double seg_width = bucket_index.range_span / num_segments;
-    double scale_to_buckets = static_cast<double>(num_buckets) / static_cast<double>(n);
-    long long cumulative_elements = 0;
+    double seg_width = bucket_index.range_span / num_segments;                              // 2
+    double scale_to_buckets = static_cast<double>(num_buckets) / static_cast<double>(n);    // 2
+    long long cumulative_elements = 0;                                                      // 1
 
-    for (long long s = 0; s < num_segments; ++s) {
-      double x_first = min_v + s * seg_width;
-      double x_last = (s == num_segments - 1) ? max_v : (min_v + (s + 1) * seg_width);
+    for (long long s = 0; s < num_segments; ++s) {                                          // s
+      double x_first = min_v + s * seg_width;                                                 // 2
+      double x_last = (s == num_segments - 1) ? max_v : (min_v + (s + 1) * seg_width);        // [1, 4]
 
-      double y_start = static_cast<double>(cumulative_elements) * scale_to_buckets;
-      cumulative_elements += seg_cnt_ptr[s];
-      double y_end = static_cast<double>(cumulative_elements) * scale_to_buckets;
+      double y_start = static_cast<double>(cumulative_elements) * scale_to_buckets;           // 2
+      cumulative_elements += seg_cnt_ptr[s];                                                  // 1
+      double y_end = static_cast<double>(cumulative_elements) * scale_to_buckets;             // 2
 
-      double dx = x_last - x_first;
-      if (dx > 1e-9) {
-        double slope = (y_end - y_start) / dx;
-        bucket_index.slopes[s] = slope;
-        bucket_index.intercepts[s] = y_start - slope * x_first;
+      double dx = x_last - x_first;                                                           // 2
+      if (dx > 1e-9) {                                                                        // 1
+        double slope = (y_end - y_start) / dx;                                                  // 3
+        bucket_index.slopes[s] = slope;                                                         // 1
+        bucket_index.intercepts[s] = y_start - slope * x_first;                                 // 3
       } else {
-        bucket_index.slopes[s] = 0.0;
-        bucket_index.intercepts[s] = y_start;
+        bucket_index.slopes[s] = 0.0;                                                           // 1
+        bucket_index.intercepts[s] = y_start;                                                   // 1
       };
     };
 
-    bucket_index.bucket_start.resize(num_buckets);
-    bucket_index.counts.assign(num_buckets, 0);
+    bucket_index.bucket_start.resize(num_buckets);                                          // b
+    bucket_index.counts.assign(num_buckets, 0);                                             // b
 
-    long long* __restrict start_ptr = bucket_index.bucket_start.data();
-    long long* __restrict count_ptr = bucket_index.counts.data();
-    const double* __restrict slopes_ptr = bucket_index.slopes.data();
-    const double* __restrict intercepts_ptr = bucket_index.intercepts.data();
-    const long long max_b_idx = num_buckets - 1;
+    long long* __restrict start_ptr = bucket_index.bucket_start.data();                     // 2
+    long long* __restrict count_ptr = bucket_index.counts.data();                           // 2
+    const double* __restrict slopes_ptr = bucket_index.slopes.data();                       // 2
+    const double* __restrict intercepts_ptr = bucket_index.intercepts.data();               // 2
+    const long long max_b_idx = num_buckets - 1;                                            // 2
 
-    i = 0;
-    for (; i <= n - 8; i += 8) {
+    i = 0;                                                                                  // 1
+    for (; i <= n - 8; i += 8) {                                                            // ((n - 1) / 8)(8 * 16 + 2)
       long long b0, b1, b2, b3, b4, b5, b6, b7;
       CLASSIFY_FAST(d_ptr[i],   min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b0);
       CLASSIFY_FAST(d_ptr[i+1], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b1);
@@ -198,25 +198,25 @@ struct SortedDataset {
       count_ptr[b4]++; count_ptr[b5]++; count_ptr[b6]++; count_ptr[b7]++;
     };
 
-    for (; i < n; ++i) {
+    for (; i < n; ++i) {                                                                    // 17n
       long long b_id;
       CLASSIFY_FAST(d_ptr[i], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b_id);
       count_ptr[b_id]++;
     };
 
-    long long current_pos = 0;
+    long long current_pos = 0;                                                              // 1
     
-    for (long long b = 0; b < num_buckets; ++b) {
-      long long cnt = count_ptr[b];
-      start_ptr[b] = current_pos;
-      current_pos += cnt;
+    for (long long b = 0; b < num_buckets; ++b) {                                           // b
+      long long cnt = count_ptr[b];                                                           // 1
+      start_ptr[b] = current_pos;                                                             // 1
+      current_pos += cnt;                                                                     // 1
     };
 
-    std::vector<double> partitioned_data(n);
-    double* __restrict part_ptr = partitioned_data.data();
+    std::vector<double> partitioned_data(n);                                                // 1
+    double* __restrict part_ptr = partitioned_data.data();                                  // 2
 
     i = 0;
-    for (; i <= n - 4; i += 4) {
+    for (; i <= n - 4; i += 4) {                                                            // ((n - 4) / 4)(4 * 18)
       long long b0, b1, b2, b3;
       CLASSIFY_FAST(d_ptr[i],   min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b0);
       CLASSIFY_FAST(d_ptr[i+1], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b1);
@@ -229,29 +229,29 @@ struct SortedDataset {
       part_ptr[start_ptr[b3]++] = d_ptr[i+3];
     };
 
-    for (; i < n; ++i) {
+    for (; i < n; ++i) {                                                                    // 18n
       long long b_id;
       CLASSIFY_FAST(d_ptr[i], min_v, inv_span, num_segments, slopes_ptr, intercepts_ptr, max_b_idx, b_id);
       part_ptr[start_ptr[b_id]++] = d_ptr[i];
     };
 
-    data = std::move(partitioned_data);
-    double* __restrict sorted_ptr = data.data();
+    data = std::move(partitioned_data);                                                     // 1
+    double* __restrict sorted_ptr = data.data();                                            // 2
 
-    for (long long b = 0; b < num_buckets; ++b) {
-      long long cnt = count_ptr[b];
-      if (cnt == 0) {
-        start_ptr[b] = -1;
+    for (long long b = 0; b < num_buckets; ++b) {                                           // b * ((n/b)log(n/b))
+      long long cnt = count_ptr[b];                                                           // 1
+      if (cnt == 0) {                                                                         // 1
+        start_ptr[b] = -1;                                                                      // 1
       } else {
-        long long s = start_ptr[b] - cnt;
-        start_ptr[b] = s;
+        long long s = start_ptr[b] - cnt;                                                       // 2
+        start_ptr[b] = s;                                                                       // 1
 
-        if (cnt == 2) {
-          if (sorted_ptr[s] > sorted_ptr[s + 1]) {
-            std::swap(sorted_ptr[s], sorted_ptr[s + 1]);
+        if (cnt == 2) {                                                                         // 1
+          if (sorted_ptr[s] > sorted_ptr[s + 1]) {                                                // 2
+            std::swap(sorted_ptr[s], sorted_ptr[s + 1]);                                            // 1 + 3
           };
-        } else if (cnt > 2 && cnt <= 32) {
-          for (long long j = s + 1; j < s + cnt; ++j) {
+        } else if (cnt > 2 && cnt <= 32) {                                                          // 1
+          for (long long j = s + 1; j < s + cnt; ++j) {                                             // s
             double key = sorted_ptr[j];
             long long k = j - 1;
             while (k >= s && sorted_ptr[k] > key) {
@@ -261,7 +261,7 @@ struct SortedDataset {
             sorted_ptr[k + 1] = key;
           };
         } else if (cnt > 32) {
-          std::sort(sorted_ptr + s, sorted_ptr + s + cnt);
+          std::sort(sorted_ptr + s, sorted_ptr + s + cnt);                                      // klogk
         };
       };
     };
@@ -269,6 +269,7 @@ struct SortedDataset {
 
 
 
+  // 5 op, O(1)
   void clear() {
     data.clear();
     bucket_index.slopes.clear();
@@ -279,74 +280,74 @@ struct SortedDataset {
 
 
 
-  // O(log2(n))
+  // nlogn + 18 op, O(log2(n))
   long long find_nearest(double target) const {  
-    if (data.empty()) return -1;
-    long long left = 0;
-    long long right = static_cast<long long>(data.size()) - 1;
+    if (data.empty()) return -1;                                                                      // 1
+    long long left = 0;                                                                               // 1
+    long long right = static_cast<long long>(data.size()) - 1;                                        // 3
 
-    if (target <= data[left]) return left;
-    if (target >= data[right]) return right;
+    if (target <= data[left]) return left;                                                            // 1
+    if (target >= data[right]) return right;                                                          // 1
 
-    while (left <= right) {
+    while (left <= right) {                                                                           // n log n
       long long mid = left + (right - left) / 2;
       if (data[mid] == target) return mid;
       else if (data[mid] < target) left = mid + 1;
       else right = mid - 1;
     };
 
-    if (right < 0) return 0;
-    if (left >= static_cast<long long>(data.size())) return static_cast<long long>(data.size()) - 1;
+    if (right < 0) return 0;                                                                          // 1
+    if (left >= static_cast<long long>(data.size())) return static_cast<long long>(data.size()) - 1;  // 4
 
-    if (std::abs(data[left] - target) < std::abs(data[right] - target)) return left;
-    return right;
+    if (std::abs(data[left] - target) < std::abs(data[right] - target)) return left;                  // 6
+    return right;                                                                                     // 0
   };
 
 
 
-  // O(1) + O(log2(k)) 
+  // 54 + klogk op, O(1) + O(log2(k)) 
   long long find_nearest_bucketed(double target) const {
-    const long long n = data.size();
-    if (n == 0) return -1;
+    const long long n = data.size();                                                                  // 2
+    if (n == 0) return -1;                                                                            // 1
 
-    const double* d_ptr = data.data();
-    if (target <= d_ptr[0]) return 0;
-    if (target >= d_ptr[n - 1]) return n - 1;
+    const double* d_ptr = data.data();                                                                // 1
+    if (target <= d_ptr[0]) return 0;                                                                 // 2
+    if (target >= d_ptr[n - 1]) return n - 1;                                                         // 4
 
-    long long num_buckets = static_cast<long long>(bucket_index.bucket_start.size());
-    long long max_b_idx = num_buckets - 1;
+    long long num_buckets = static_cast<long long>(bucket_index.bucket_start.size());                 // 2
+    long long max_b_idx = num_buckets - 1;                                                            // 2
 
-    long long b_id = bucket_clasificator(target);
+    long long b_id = bucket_clasificator(target);                                                     // 16
 
-    long long min_b = (b_id > 0) ? (b_id - 1) : 0;
-    long long max_b = (b_id < max_b_idx) ? (b_id + 1) : max_b_idx;
+    long long min_b = (b_id > 0) ? (b_id - 1) : 0;                                                    // [2, 3]
+    long long max_b = (b_id < max_b_idx) ? (b_id + 1) : max_b_idx;                                    // [2, 3]
 
-    long long left = -1;
-    long long right = -1;
+    long long left = -1;                                                                              // 1
+    long long right = -1;                                                                             // 1
 
-    bool found_bucket = false;
+    bool found_bucket = false;                                                                        // 1
     
-    for (long long b = min_b; b <= max_b; ++b) {
-      long long cnt = bucket_index.counts[b];
-      if (cnt == 0) continue;
+    for (long long b = min_b; b <= max_b; ++b) {                                                      // [3, b]
+      long long cnt = bucket_index.counts[b];                                                           // 1
+      if (cnt == 0) continue;                                                                           // 1
 
-      long long b_start = bucket_index.bucket_start[b];
-      long long b_end = b_start + cnt - 1;
+      long long b_start = bucket_index.bucket_start[b];                                                 // 1
+      long long b_end = b_start + cnt - 1;                                                              // 3
 
-      if (target <= d_ptr[b_end]) {
-        left = b_start;
-        right = b_end;
-        found_bucket = true;
+      if (target <= d_ptr[b_end]) {                                                                     // 1
+        left = b_start;                                                                                   // 1
+        right = b_end;                                                                                    // 1
+        found_bucket = true;                                                                              // 1
         break;
       } else {
-        left = b_start;
-        right = b_end;
+        left = b_start;                                                                                   // 1
+        right = b_end;                                                                                    // 1
       };
     };
 
-    if (!found_bucket && (left == -1 || right == -1)) return find_nearest(target);
+    if (!found_bucket && (left == -1 || right == -1)) return find_nearest(target);                      // 3 + nlogn
 
-    while (left <= right) {
+    while (left <= right) {                                                                             // klogk
       long long mid = left + ((right - left) >> 1);
       double val = d_ptr[mid];
       if (val == target) return mid;
@@ -354,13 +355,13 @@ struct SortedDataset {
       else right = mid - 1;
     };
 
-    if (right < bucket_index.bucket_start[min_b]) return bucket_index.bucket_start[min_b];
-    if (left >= n) return n - 1;
+    if (right < bucket_index.bucket_start[min_b]) return bucket_index.bucket_start[min_b];              // 2
+    if (left >= n) return n - 1;                                                                        // 2
 
-    double dist_left = fast_abs(d_ptr[left] - target);
-    double dist_right = fast_abs(d_ptr[right] - target);
+    double dist_left = fast_abs(d_ptr[left] - target);                                                  // 3
+    double dist_right = fast_abs(d_ptr[right] - target);                                                // 3
     
-    return (dist_left < dist_right) ? left : right;
+    return (dist_left < dist_right) ? left : right;                                                     // 2
   };
 
 
