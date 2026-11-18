@@ -13,7 +13,7 @@
 
 class BenchmarkBucketedSearch : public IBenchmarkStruct<double> {
 private:
-  SortedDataset dataset;
+  SortedDataset<double> dataset;
   std::chrono::duration<double, std::milli> prepare_time;
   std::chrono::duration<double, std::milli> search_time;
   long long checksum = 0;

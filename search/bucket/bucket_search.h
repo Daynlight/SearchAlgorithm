@@ -22,9 +22,10 @@
 
 
 
+template<typename T>
 struct BucketIndex {
-  double min_val{0};
-  double max_val{0};
+  T min_val{0};
+  T max_val{0};
   double range_span{1.0};
   double inv_span{1.0};
   
@@ -37,9 +38,10 @@ struct BucketIndex {
 
 
 
+template<typename T>
 struct SortedDataset {
   std::vector<double> data;
-  BucketIndex bucket_index; 
+  BucketIndex<T> bucket_index; 
 
 
 

@@ -15,6 +15,7 @@ A high-performance search structure that deliberately prioritizes speed over mem
 ## TOC
 - [About](#about)
 - [Installation](#installation)
+- [Useage](#useage)
 - [Requirements](#requirements)
 - [Dependencies](#dependencies)
 - [Main Idea](#main-idea)
@@ -44,6 +45,34 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build &
 
 
 
+## Useage
+```cpp
+#include <vector>
+#include "bucket_search.h"
+
+int main() {
+  std::vector<double> data = {1, 2, 3, 1, 2, 6, 1, 7, 1};
+  std::vector<double> test = {1.5, 2 2.1231, 23.05};
+
+  SortedDataset<double> dataset;
+  dataset.data = std::move(data);
+
+  dataset.build_index();
+
+  for(int i = 0; i < test.size(); ++i) checksum += dataset.find_nearest_bucketed(test[i]);
+
+  dataset.print_params();
+  dataset.analyze_index_stats();
+  dataset.graph_bucket_clasificator_terminal();
+
+  dataset.clear();
+ 
+  return 0;
+};
+```
+
+
+
 ## Requirements
 - [cmake](https://cmake.org/)
 - [gnu-gcc](https://gcc.gnu.org/)
@@ -54,7 +83,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build &
 
 ## Dependencies
 - [fmt](https://vcpkg.io/en/package/fmt.html)
-- [gtest](https://vcpkg.io/en/package/gtest.html)
+- [indicators](https://vcpkg.io/en/package/indicators.html)
 
 
 
