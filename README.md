@@ -15,6 +15,8 @@ A high-performance search structure that deliberately prioritizes speed over mem
 ## TOC
 - [About](#about)
 - [Installation](#installation)
+- [Requirements](#requirements)
+- [Dependencies](#dependencies)
 - [Main Idea](#main-idea)
   - [Build Index](#build-index)
   - [Search for Nearest Value](#search-for-nearest-value)
@@ -25,12 +27,12 @@ A high-performance search structure that deliberately prioritizes speed over mem
 - [Memory Structure](#memory-structure)
 - [Final Concept](#final-concept)
 - [Results](#results)
+- [License](#license)
 
 
 
 ## Installation
 ### Download dependencies
-[vcpkg](https://vcpkg.io/en/)
 ```bash
 vcpkg install --x-install-root=./vendor
 ```
@@ -39,6 +41,20 @@ vcpkg install --x-install-root=./vendor
 ```bash
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build && ./build/search
 ```
+
+
+
+## Requirements
+- [cmake](https://cmake.org/)
+- [gnu-gcc](https://gcc.gnu.org/)
+- [vcpkg](https://vcpkg.io/en/)
+- [ninja-build](https://ninja-build.org/)
+
+
+
+## Dependencies
+- [fmt](https://vcpkg.io/en/package/fmt.html)
+- [gtest](https://vcpkg.io/en/package/gtest.html)
 
 
 
@@ -476,4 +492,9 @@ Bucketed Search Checksum: 4999964242607086
             -10.00                               150.00                               310.00
 
 ```
+
+
+
+## License
+[GNU General v2](LICENSE)
 
