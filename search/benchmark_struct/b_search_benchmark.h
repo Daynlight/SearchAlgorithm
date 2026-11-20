@@ -76,7 +76,7 @@ public:
 
   void search(std::vector<double> test) {
     auto start_std = std::chrono::high_resolution_clock::now();
-    for(int i = 0; i < test.size(); ++i) checksum += find_nearest(data, test[i]);
+    for(int i = 0; i < test.size(); ++i) checksum += this->data[find_nearest(data, test[i])];
     auto end_std = std::chrono::high_resolution_clock::now();
     search_time = end_std - start_std;
   };

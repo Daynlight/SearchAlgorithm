@@ -38,6 +38,7 @@
 #include "benchmark_env/i_benchmark_env.h"
 #include "benchmark_env/linear_benchmark_env.h"
 #include "benchmark_env/steps_benchmark_env.h"
+#include "benchmark_env/outliner_benchmark_env.h"
 
 
 
@@ -177,6 +178,7 @@ int main(){
   std::vector<std::unique_ptr<IBenchmarkEnv>> benchmark_envs = {};
   benchmark_envs.emplace_back(std::make_unique<LinearBenchmarkEnv>());
   benchmark_envs.emplace_back(std::make_unique<StepsBenchmarkEnv>());
+  benchmark_envs.emplace_back(std::make_unique<OutlinerBenchmarkEnv>());
 
 
   fmt::println(fg(fmt::color::yellow), "=== Creating Benchmark Structure ===");

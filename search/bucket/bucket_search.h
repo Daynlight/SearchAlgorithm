@@ -34,6 +34,7 @@ struct BucketIndex {
 
   std::vector<long long> bucket_start;
   std::vector<long long> counts;
+  std::vector<double> keys;
 };
 
 
@@ -268,6 +269,10 @@ struct SortedDataset {
     };
     
     bucket_index.inv_span = 1.0 / bucket_index.range_span;
+
+    bucket_index.keys.resize(n);
+    double* __restrict k_ptr = bucket_index.keys.data();
+    for (long long j = 0; j < n; ++j) k_ptr[j] = d_ptr[items_ptr[j]];
   };
 
 
@@ -279,21 +284,6 @@ struct SortedDataset {
     bucket_index.intercepts.clear();
     bucket_index.bucket_start.clear();
     bucket_index.counts.clear();
-  };
-
-
-
-  inline long long lower_pos(double target, long long lo, long long hi) const {
-    const double* d = data.data();
-    const long long* it = bucket_index.counts.data();
-
-    if (hi - lo <= 16) {
-      long long c = 0;
-      for (long long j = lo; j < hi; ++j) c += (d[it[j]] < target);
-      return lo + c;
-    };
-
-    return std::lower_bound(it + lo, it + hi, target, [d](long long idx, double t) { return d[idx] < t; }) - it;
   };
 
 
@@ -315,34 +305,36 @@ struct SortedDataset {
 
 
   // 54 + klogk op, O(1) + O(log2(k)) 
-  long long find_nearest_bucketed(double target) const {
+  inline long long lower_pos(double target, long long lo, long long hi) const {
+    const double* k = bucket_index.keys.data();
+    if (hi - lo <= 16) {
+      long long c = 0;
+      for (long long j = lo; j < hi; ++j) c += (k[j] < target);
+      return lo + c;
+    };
+    return std::lower_bound(k + lo, k + hi, target) - k;
+  };
+
+
+
+  inline long long find_nearest_bucketed(double target) const {
     const long long n = static_cast<long long>(data.size());
     if (n == 0) return -1;
-
-    const double* d = data.data();
+  
+    const double*    k  = bucket_index.keys.data();
     const long long* it = bucket_index.counts.data();
     const long long* st = bucket_index.bucket_start.data();
-
-    const long long b  = bucket_clasificator(target);
-    const long long lo = st[b];
-    const long long hi = st[b + 1];
-
-    __builtin_prefetch(d + it[lo > 0 ? lo - 1 : 0]);
-    __builtin_prefetch(d + it[hi < n ? hi : n - 1]);
-
-    const long long pos = lower_pos(target, lo, hi);
-
-    const double vl = (pos > 0) ? d[it[pos - 1]] : -HUGE_VAL;
-    const double vh = (pos < n) ? d[it[pos]]     :  HUGE_VAL;
-
-    if (!(vl < target && vh >= target)) {
-      const long long nb = static_cast<long long>(bucket_index.bucket_start.size()) - 1;
-      return search_window(target, st[b > 0 ? b - 1 : 0], st[b < nb - 1 ? b + 2 : nb]);
-    };
-
-    if (pos == 0) return 0;
-    if (pos == n) return n - 1;
-    return ((vh - target) < (target - vl)) ? pos : pos - 1;
+  
+    const long long b = bucket_clasificator(target);
+    long long pos = lower_pos(target, st[b], st[b + 1]);
+  
+    if (!((pos == 0 || k[pos - 1] < target) && (pos == n || k[pos] >= target))) {
+      pos = std::lower_bound(k, k + n, target) - k;
+    }
+  
+    if (pos == 0) return it[0];
+    if (pos == n) return it[n - 1];
+    return (k[pos] - target < target - k[pos - 1]) ? it[pos] : it[pos - 1];
   };
 
 
