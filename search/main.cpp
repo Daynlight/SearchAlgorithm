@@ -22,14 +22,14 @@
 #include <indicators/progress_bar.hpp>
 
 #define DATA_FOLDER "data/"
-#define DATA_SIZE 100000000 
+#define DATA_SIZE 10000000 
 #define DATA_MIN_VAL -20000000
 #define DATA_MAX_VAL 20000000
 
 #define DATA_DENSE_MIN_VAL -10
 #define DATA_DENSE_MAX_VAL 10
 
-#define NUM_QUERIES 100000000
+#define NUM_QUERIES 10000000
 
 #include "benchmark_struct/i_benchmark_struct.h"
 #include "benchmark_struct/bucket_search_benchmark.h"
